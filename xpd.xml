@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<xpd>
+    <dependency repo = "sc_xud">
+        <githash>HEAD</githash>
+        <uri>git@github.com:xcore/sc_xud</uri>
+    </dependency>
+    <description>USB Component. This requires the XUD low level library (sc_xud).</description>
+    <location>git@github.com:xcore/sc_usb</location>
+    <name>sc_usb</name>
+    <maintainer>henkmuller</maintainer>
+    <scope>example</scope>
+    <vendor>XMOS</vendor>
+    <xpd_version>1.0</xpd_version>
+</xpd>
