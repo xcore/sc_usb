@@ -1,8 +1,13 @@
 <?xml version="1.0" ?>
 <xpd>
     <dependency repo = "sc_xud">
-        <githash>HEAD</githash>
+        <githash>a92c97f5800c722a9eb45470213166437e04a88a</githash>
         <uri>git@github.com:xcore/sc_xud</uri>
+        <version>0.6.0rc0</version>
+    </dependency>
+    <dependency repo = "xcommon">
+        <githash>fd0a7bd1dd56741e00f418b0fe9ff50e4231ed76</githash>
+        <uri>ssh://git@github.com/xcore/xcommon</uri>
     </dependency>
     <description>USB Component. This requires the XUD low level library (sc_xud).</description>
     <location>git@github.com:xcore/sc_usb</location>
