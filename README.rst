@@ -5,7 +5,7 @@ USB library
 
 :Status:  first port to github
 
-:Maintainer:  
+:Maintainer:
 
 :Description:  Library to interface with USB2 PHY
 
@@ -13,7 +13,7 @@ USB library
 Key Features
 ============
 
-* Library to perform low level functions (IN and OUT a block of data)
+* To be used in conjunction with the low level XUD library
 * Source code to deal with common requests of endpoint0
 
 To Do
@@ -24,8 +24,6 @@ To Do
 Firmware Overview
 =================
 
-This repo contains the binary XUD USB interface library.
-
 Known Issues
 ============
 
@@ -35,6 +33,7 @@ Required Repositories
 ================
 
 * xcommon git\@github.com:xcore/xcommon.git
+* sc_xud git\@github.com:xcore/sc_xud.git
 
 Support
 =======
