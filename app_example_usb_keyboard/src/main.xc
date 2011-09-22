@@ -60,10 +60,10 @@ void ps2Process(port ps2_clock, port ps2_data, chanend c) {
         case ps2Handler(ps2_clock, ps2_data, state);
         case c :> int _:
             master {
-                c <: modifier;
+                c <: (char) modifier;
 #pragma loop unroll
                 for(int i = 0; i < 6; i++) {
-                    c <: keys[i];
+                    c <: (char) keys[i];
                 }
             }
             break;
@@ -90,7 +90,7 @@ void ps2Process(port ps2_clock, port ps2_data, chanend c) {
 }
 
 
-char reportBuffer[9] = { 0,0,0,0,0,0,0,0,0};
+char reportBuffer[9];
 
 /*
  * This function responds to the HID requests.
@@ -100,14 +100,25 @@ void hid(chanend chan_ep1, chanend c_in)
     XUD_ep c_ep1 = XUD_Init_Ep(chan_ep1);
    
     while(1) {
+        reportBuffer[0] = 2;
         c_in <: 0; // request data;
-        c_in :> reportBuffer[1];
+        slave {
+            c_in :> reportBuffer[1];
 #pragma loop unroll
-        for(int i = 0; i < 6; i++) {
-            c_in :> reportBuffer[i+3];
+            for(int i = 0; i < 6; i++) {
+                c_in :> reportBuffer[i+3];
+            }
         }
+        if (XUD_SetBuffer(c_ep1, reportBuffer, 9) < 0) {
+            XUD_ResetEndpoint(c_ep1, null);
+        } 
+        reportBuffer[0] = 1;
+        reportBuffer[1] = 0; // buttons
+        reportBuffer[2] = 0; // X
+        reportBuffer[3] = 0; // Y
+        reportBuffer[4] = 0;
         // for mouse send data with reportbuffer[0] = 1.
-        if (XUD_SetBuffer(c_ep1, reportBuffer, sizeof(reportBuffer)) < 0) {
+        if (XUD_SetBuffer(c_ep1, reportBuffer, 5) < 0) {
             XUD_ResetEndpoint(c_ep1, null);
         }
     }
