@@ -16,7 +16,7 @@ xsi:schemaLocation="http://www.xmos.com http://www.xmos.com">
       </Boot>
       <Core Number="0" Reference="stdcore[0]"/>
     </Node>
-    <Node Id="1" Type="XS1-L1A" Oscillator="12Mhz" SystemFrequency="480MHz">
+    <Node Id="1" Type="XS1-L1A" Oscillator="12Mhz" SystemFrequency="480MHz" ReferenceFrequency="96Mhz">
       <Boot>
         <Source Location="SPI:bootFlash"/>
         <Bootee NodeId="0"/>

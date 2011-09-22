@@ -23,7 +23,7 @@
 
 #include "xud.h"
 #include "usb.h"
-#include "xgc_keyboard.h"
+#include "ps2.h"
 
 #define XUD_EP_COUNT_OUT   1
 #define XUD_EP_COUNT_IN    2
@@ -40,85 +40,97 @@ XUD_EpType epTypeTableIn[XUD_EP_COUNT_IN] =   {XUD_EPTYPE_CTL, XUD_EPTYPE_BUL};
 on stdcore[USB_CORE]: out port p_usb_rst = XS1_PORT_1I;
 on stdcore[USB_CORE]: clock    clk       = XS1_CLKBLK_3;
 
+on stdcore[0]: port ps2_clock = XS1_PORT_1A;
+on stdcore[0]: port ps2_data = XS1_PORT_1L;
+
 void Endpoint0( chanend c_ep0_out, chanend c_ep0_in);
 
-char reportBuffer[] = {
-                       0, 0,0,0,0,0,0,0,0};
+
+void ps2Processor(port ps2_clock, port ps2_data, chanend c) {
+    unsigned action, key, modifier;
+	// This process will maintain the state of shift and control
+    int keys[6];
+
+    struct ps2state state;
+
+    ps2HandlerInit(state);
+
+	// Loop
+	while (1) {
+        select {
+        case ps2Handler(ps2_clock, ps2_data, state);
+        case c :> int _:
+            master {
+                c <: modifier;
+#pragma loop unroll
+                for(int i = 0; i < 6; i++) {
+                    c <: keys[i];
+                }
+            }
+            break;
+        }
+        // This should only be after the ps2Handler!
+        {action, modifier, key} = ps2Interpret(state);
+        if (action == PS2_PRESS) {
+            for(int i = 0; i < 6; i++) {
+                if(keys[i] == 0) {
+                    keys[i] = key;
+                    break;
+                }
+            }
+        } else if (action == PS2_RELEASE) {
+            for(int i = 0; i < 6; i++) {
+                if(keys[i] == key) {
+                    keys[i] = 0;
+                    break;
+                }
+            }
+        }
+
+	}
+}
+
+
+char reportBuffer[9] = { 0,0,0,0,0,0,0,0,0};
 
 /*
- * This function responds to the HID requests - it draws a square using the mouse moving 40 pixels
- * in each direction in sequence every 100 requests.
+ * This function responds to the HID requests.
  */
 void hid(chanend chan_ep1, chanend c_in) 
 {
-    int press;
-
     XUD_ep c_ep1 = XUD_Init_Ep(chan_ep1);
    
     while(1) {
-        select {
-        case c_in :> press:
-            reportBuffer[0] = 2;
-            reportBuffer[1] = press;
-            c_in :> press;
-            reportBuffer[3] = press; 
-            break;
-        default:
-            reportBuffer[0] = 0;  // for mouse send data with reportbuffer[0] = 1.
-            reportBuffer[1] = 0; 
-            reportBuffer[3] = 0; 
-            break;
+        c_in <: 0; // request data;
+        c_in :> reportBuffer[1];
+#pragma loop unroll
+        for(int i = 0; i < 6; i++) {
+            c_in :> reportBuffer[i+3];
         }
+        // for mouse send data with reportbuffer[0] = 1.
         if (XUD_SetBuffer(c_ep1, reportBuffer, sizeof(reportBuffer)) < 0) {
             XUD_ResetEndpoint(c_ep1, null);
         }
     }
 }
 
-void busy()
-{
-    int a[2];
-    int x = 0;
-
-    set_thread_fast_mode_on();
-
-    while(1)
-    {
-        x = x + 1;
-        a[1] = x;
-    }
-}
-
 /*
- * The main function fires of three processes: the XUD manager, Endpoint 0, and hid. An array of
- * channels is used for both in and out endpoints, endpoint zero requires both, hid is just an
- * IN endpoint.
+ * The main function fires of three processes: the XUD manager, Endpoint 0,
+ * and hid. An array of channels is used for both in and out endpoints,
+ * endpoint zero requires both, hid is just an IN endpoint.
  */
 int main() 
 {
     chan c_ep_out[1], c_ep_in[2], keys;
     par 
     {
-        
         on stdcore[USB_CORE]: XUD_Manager( c_ep_out, XUD_EP_COUNT_OUT, c_ep_in, XUD_EP_COUNT_IN,
                                 null, epTypeTableOut, epTypeTableIn,
                                 p_usb_rst, clk, -1, XUD_SPEED_HS, null); 
         
-        on stdcore[USB_CORE]:
-        {
-            set_thread_fast_mode_on();
-            Endpoint0( c_ep_out[0], c_ep_in[0]);
-        }
-       
-        on stdcore[USB_CORE]:
-        {
-            set_thread_fast_mode_on();
-            hid(c_ep_in[1], keys);
-        }
-        on stdcore[USB_CORE]:
-        {
-            keyboard_ps2_interface(keys);
-        }
+        on stdcore[USB_CORE]: Endpoint0( c_ep_out[0], c_ep_in[0]);
+        on stdcore[USB_CORE]: hid(c_ep_in[1], keys);
+        on stdcore[USB_CORE]: ps2Process(ps2_clock, ps2_data, keys);
     }
 
     return 0;
