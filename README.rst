@@ -34,6 +34,7 @@ Required Repositories
 
 * xcommon git\@github.com:xcore/xcommon.git
 * sc_xud git\@github.com:xcore/sc_xud.git
+* sc_ps2 git\@github.com:xcore/sc_ps2.git
 
 Support
 =======

@@ -45,8 +45,7 @@ on stdcore[0]: port ps2_data = XS1_PORT_1L;
 
 void Endpoint0( chanend c_ep0_out, chanend c_ep0_in);
 
-
-void ps2Processor(port ps2_clock, port ps2_data, chanend c) {
+void ps2Process(port ps2_clock, port ps2_data, chanend c) {
     unsigned action, key, modifier;
 	// This process will maintain the state of shift and control
     int keys[6];
