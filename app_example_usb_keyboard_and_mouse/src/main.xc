@@ -118,7 +118,7 @@ void hid(chanend chan_ep1, chanend c_in)
         // Then set up a mouse response
         reportBuffer[0] = 1;
         reportBuffer[1] = 0; // buttons
-        reportBuffer[2] = 0; // X
+        reportBuffer[2] = reportBuffer[4] != 0 ? 1 : 0; // X
         reportBuffer[3] = 0; // Y
         reportBuffer[4] = 0;
         // for mouse send data with reportbuffer[0] = 1.

@@ -40,7 +40,7 @@
 # This variable should contain a space separated list of all
 # the directories containing buildable applications (usually
 # prefixed with the app_ prefix)
-BUILD_SUBDIRS = app_example_usb_hid app_example_usb_keyboard
+BUILD_SUBDIRS = app_example_usb_hid app_example_usb_keyboard_and_mouse
 
 # This variable should contain a space separated list of all
 # the directories containing buildable plugins (usually

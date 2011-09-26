@@ -18,7 +18,7 @@ TARGET = keyboard
 # not include the .xe postfix. If left blank the name will default to 
 # the project name
 
-APP_NAME = app_example_usb_keyboard
+APP_NAME = app_example_usb_keyboard_and_mouse
 
 # The flags passed to xcc when building the application
 # You can also set the following to override flags for a particular language:
