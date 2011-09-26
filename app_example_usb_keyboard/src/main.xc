@@ -48,7 +48,7 @@ void Endpoint0( chanend c_ep0_out, chanend c_ep0_in);
 void ps2Process(port ps2_clock, port ps2_data, chanend c) {
     unsigned action, key, modifier;
 	// This process will maintain the state of shift and control
-    int keys[6];
+    int keys[6] = {0,0,0,0,0,0};
 
     struct ps2state state;
 
@@ -70,6 +70,7 @@ void ps2Process(port ps2_clock, port ps2_data, chanend c) {
         }
         // This should only be after the ps2Handler!
         {action, modifier, key} = ps2Interpret(state);
+        key = ps2USB(key);
         if (action == PS2_PRESS) {
             for(int i = 0; i < 6; i++) {
                 if(keys[i] == 0) {
@@ -99,7 +100,9 @@ void hid(chanend chan_ep1, chanend c_in)
 {
     XUD_ep c_ep1 = XUD_Init_Ep(chan_ep1);
    
+// loop that alternates keyboard and mouse responses.
     while(1) {
+        // First set up a keyboard response
         reportBuffer[0] = 2;
         c_in <: 0; // request data;
         slave {
@@ -112,6 +115,7 @@ void hid(chanend chan_ep1, chanend c_in)
         if (XUD_SetBuffer(c_ep1, reportBuffer, 9) < 0) {
             XUD_ResetEndpoint(c_ep1, null);
         } 
+        // Then set up a mouse response
         reportBuffer[0] = 1;
         reportBuffer[1] = 0; // buttons
         reportBuffer[2] = 0; // X
