@@ -57,21 +57,30 @@ inline void XUD_SetNotReady(XUD_ep e)
 
 #pragma unsafe arrays
 
+extern void setINHandler(chanend s, XUD_ep y);
+extern void enableInterrupts();
+
 void both(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out) {
     unsigned addrMyBuffer, addrNotBuffer;
-    char mybuffer[1024] = "Monkeys in great numbers\n";
+    int myBuffer[256];
     XUD_ep c_ep_in = XUD_Init_Ep(chan_ep_in);
     XUD_ep c_ep_out = XUD_Init_Ep(chan_ep_out);
     XUD_ep c_ep_interrupt = XUD_Init_Ep(chan_ep_interrupt);
     unsigned int tmp;
     unsigned int rp = 0, wp = 64, len = 1;
 
-    asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (mybuffer));
+    asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (myBuffer));
     asm("add %0, %1, 0":"=r"(addrNotBuffer): "r" (notificationBuffer));
     XUD_SetReady_In(c_ep_in, PIDn_DATA0, addrMyBuffer, 25);
     XUD_SetReady_In(c_ep_interrupt, PIDn_DATA0, addrNotBuffer, 0);
 
     XUD_SetReady(c_ep_out, 0);
+
+#define USEINT
+#ifdef USEINT
+    setINHandler(chan_ep_interrupt, c_ep_interrupt);
+    enableInterrupts();
+#endif
 
     while(1) {
         select {
@@ -82,15 +91,16 @@ void both(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out) {
             if (len == 0) {
                 XUD_SetNotReady(c_ep_in);
             } else {
-                XUD_SetReady_In(c_ep_in, 0, addrMyBuffer + rp*4 + 4, (mybuffer, unsigned int[256])[rp]);
+                XUD_SetReady_In(c_ep_in, 0, addrMyBuffer + rp*4 + 4, myBuffer[rp]);
             }
             break;
 
+#ifndef USEINT
         case inuint_byref(chan_ep_interrupt, tmp): // Interrupts - always ready.
             XUD_SetData_Inline(c_ep_interrupt, chan_ep_interrupt);
             XUD_SetReady_In(c_ep_interrupt, 0, addrNotBuffer, 0);
             break;
-
+#endif
 
         case inuint_byref(chan_ep_out, tmp):
             {
@@ -98,12 +108,12 @@ void both(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out) {
                 int datalength;
                 while (!testct(chan_ep_out)) {
                     unsigned int datum = inuint(chan_ep_out);
-                    (mybuffer, unsigned int[256])[++p] = datum;
+                    myBuffer[++p] = datum;
                 }  
                 tail = inct(chan_ep_out);
                 datalength = (p-wp-1)<<2;
                 datalength += tail - 12;
-                (mybuffer, unsigned int[256])[wp] = datalength;
+                myBuffer[wp] = datalength;
                 if (len != 3) {
                     if (len == 0) {
                         XUD_SetReady_In(c_ep_in, 0, addrMyBuffer + wp*4 + 4, datalength);
