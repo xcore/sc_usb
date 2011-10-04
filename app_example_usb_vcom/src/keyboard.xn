@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Network xmlns="http://www.xmos.com"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.xmos.com http://www.xmos.com">
+  <Type>Device</Type>
+  <Name>XS1-L2A-QF124</Name>
+
+  <Declarations>
+    <Declaration>core stdcore[2]</Declaration>
+  </Declarations>
+
+  <Nodes>
+    <Node Id="0" Type="XS1-L1A" Oscillator="13Mhz" SystemFrequency="500MHz">
+      <Boot>
+     	<Source Location="XMOSLINK"/>
+      </Boot>
+      <Core Number="0" Reference="stdcore[0]"/>
+    </Node>
+    <Node Id="1" Type="XS1-L1A" Oscillator="12Mhz" SystemFrequency="480MHz" ReferenceFrequency="96Mhz">
+      <Boot>
+        <Source Location="SPI:bootFlash"/>
+        <Bootee NodeId="0"/>
+      </Boot>
+      <Core Number="0" Reference="stdcore[1]">
+ 	<Port Location="XS1_PORT_1C" Name="PORT_SPI_CLK" />
+	<Port Location="XS1_PORT_1D" Name="PORT_SPI_MOSI" />
+  	<Port Location="XS1_PORT_1A" Name="PORT_SPI_MISO"/>
+	<Port Location="XS1_PORT_1B" Name="PORT_SPI_SS"/>
+      </Core>
+    </Node>
+  </Nodes>
+
+	<Links>
+	   <!-- L2 Internal -->
+	   <Link Encoding="2wire" Delays="10,10">
+	     <LinkEndpoint NodeId="0" Link="2"/>
+	     <LinkEndpoint NodeId="1" Link="2"/>
+	   </Link>
+  	</Links>
+
+  <Packages>	
+    <Package id="L2" Type="XS1-L2A-QF124">
+      <Component NodeId="0" InPackage="0"/>
+      <Component NodeId="1" InPackage="1"/>
+    </Package>    
+  </Packages>
+
+  <ExternalDevices>
+    <Device NodeId="1" Core="0" Class="SPIFlash" Name="bootFlash" Type="W25X40BV">
+      <Attribute Name="PORT_SPI_MISO" Value="PORT_SPI_MISO"/>
+      <Attribute Name="PORT_SPI_SS"   Value="PORT_SPI_SS"/>
+      <Attribute Name="PORT_SPI_CLK"  Value="PORT_SPI_CLK"/>
+      <Attribute Name="PORT_SPI_MOSI" Value="PORT_SPI_MOSI"/>
+    </Device>
+  </ExternalDevices>
+
+  <JTAGChain>
+     <JTAGDevice NodeId="0"/>
+     <JTAGDevice NodeId="1"/>
+  </JTAGChain>
+ 
+</Network>
