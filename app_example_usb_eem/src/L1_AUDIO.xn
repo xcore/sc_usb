@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Network xmlns="http://www.xmos.com"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.xmos.com http://www.xmos.com">
+  <Type>Board</Type>
+
+  <Declarations>
+    <Declaration>core stdcore[1]</Declaration>
+  </Declarations>
+
+ <Packages>
+ <Package Type="XS1-L1A-TQ128" Id="whatever">
+  <Nodes>
+    <Node InPackageId="0" Type="XS1-L1A" id="0" oscillator="13Mhz" systemfrequency="500MHz" referencefrequency="100MHz">
+      <Core Number="0" Reference="stdcore[0]">
+        <Port Name="UIFM_INT_CLK_PORT" Location="XS1_PORT_1I"/>
+        <Port Name="UIFM_USB_CLK_PORT" Location="XS1_PORT_1H"/>
+        <Port Name="UIFM_REG_WRITE_PORT" Location="XS1_PORT_8C"/>     
+        <Port Name="UIFM_REG_READ_PORT"  Location="XS1_PORT_8D"/> 
+        <Port Name="UIFM_FLAG_0_PORT"    Location="XS1_PORT_1N"/>       
+        <Port Name="UIFM_FLAG_1_PORT"    Location="XS1_PORT_1O"/>
+        <Port Name="UIFM_FLAG_2_PORT"    Location="XS1_PORT_1P"/>
+        <Port Name="UIFM_TX_DATA_PORT"   Location="XS1_PORT_8A"/>
+        <Port Name="UIFM_RX_DATA_PORT"   Location="XS1_PORT_8B"/>
+        <Port Name="UIFM_STP_SUS_PORT"   Location="XS1_PORT_1E"/>
+        <Port Name="UIFM_LS_PORT"        Location="XS1_PORT_4D"/>
+      </Core>
+    </Node>
+  </Nodes>
+ </Package>
+ </Packages>
+
+  <Links>
+  </Links>
+
+  <ExternalDevices>
+    <Device Nodeid="0" Core="0" Class="SPIFlash" Name="bootFlash" Type="AT25FS010">
+      <Attribute Name="PORT_SPI_MISO" Value="XS1_PORT_1A"/>
+      <Attribute Name="PORT_SPI_SS"   Value="XS1_PORT_1B"/>
+      <Attribute Name="PORT_SPI_CLK"  Value="XS1_PORT_1C"/>
+      <Attribute Name="PORT_SPI_MOSI" Value="XS1_PORT_1D"/>
+    </Device>
+  </ExternalDevices>
+
+  <JTAGChain>
+     <JTAGDevice Nodeid="0"/>
+  </JTAGChain>
+
+</Network>
+
+

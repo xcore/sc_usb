@@ -52,12 +52,12 @@ void ps2Process(port ps2_clock, port ps2_data, chanend c) {
 
     struct ps2state state;
 
-    ps2HandlerInit(state);
+    ps2HandlerInit(ps2_clock, state);
 
 	// Loop
 	while (1) {
         select {
-        case ps2Handler(ps2_clock, ps2_data, state);
+        case ps2Handler(ps2_clock, ps2_data, 0, state);
         case c :> int _:
             master {
                 c <: (char) modifier;
