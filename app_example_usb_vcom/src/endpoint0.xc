@@ -45,7 +45,7 @@ static unsigned char hiSpdConfDesc[] = {
 
   0x09,                /* 0  bLength */ 
   0x02,                /* 1  bDescriptortype */ 
-  0x40, 0x00,          /* 2  wTotalLength */ 
+  0x43, 0x00,          /* 2  wTotalLength */ 
   0x02,                /* 4  bNumInterfaces */ 
   0x01,                /* 5  bConfigurationValue */
   0x04,                /* 6  iConfiguration */
@@ -77,8 +77,13 @@ static unsigned char hiSpdConfDesc[] = {
   0x05,                /* 0  bLength, Descriptor size in bytes */
   0x24,                /* 1  bDescriptortype, CS_INTERFACE */
   0x01,                /* 2  bDescriptorsubtype, CALL MANAGEMENT */
-  0x03,                /* 3  bmCapabilities */
+  0x03,                /* 3  bmCapabilities, DIY */
   0x01,                /* 4  bDataInterface */
+
+  0x04,                /* 0  bLength */ 
+  0x24,                /* 1  bDescriptortype, CS_INTERFACE */ 
+  0x02,                /* 2  bDescriptorsubtype, ABSTRACT CONTROL MANAGEMENT */ 
+  0x00,                /* 3 bmCapabilities: none */
 
   0x07,                /* 0  bLength */ 
   0x05,                /* 1  bDescriptorType */ 
@@ -86,8 +91,7 @@ static unsigned char hiSpdConfDesc[] = {
   0x03,                /* 3  bmAttributes */ 
   0x40,                /* 4  wMaxPacketSize */ 
   0x00,                /* 5  wMaxPacketSize */ 
-  0x02,                /* 6  bInterval */ 
-
+  0xff,                /* 6  bInterval */ 
 
 
   0x09,                /* 0  bLength */

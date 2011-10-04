@@ -45,61 +45,77 @@ on stdcore[0]: port ps2_data = XS1_PORT_1L;
 void Endpoint0( chanend c_ep0_out, chanend c_ep0_in);
 
 
-char reportBuffer[9];
+char notificationBuffer[7];
 
 
-/*
- * This function responds to the HID requests.
- */
-void interrupt(chanend chan_ep1) {
-    XUD_ep c_ep1 = XUD_Init_Ep(chan_ep1);
-   
-    while(1) {
-        if (XUD_SetBuffer(c_ep1, reportBuffer, 0) < 0) {
-            XUD_ResetEndpoint(c_ep1, null);
-        }
-    }
+inline void XUD_SetNotReady(XUD_ep e)
+{
+  int chan_array_ptr;
+  asm ("ldw %0, %1[0]":"=r"(chan_array_ptr):"r"(e));
+  asm ("stw %0, %1[0]"::"r"(0),"r"(chan_array_ptr));
 }
 
-/*
- * This function responds to the OUT requests, posting data from the servers.
- */
-void consume(chanend chan_ep1, chanend c_in) 
-{
-    XUD_ep c_ep1 = XUD_Init_Ep(chan_ep1);
-    char mybuffer[1024];
-    timer t;
-    unsigned s;
+#pragma unsafe arrays
 
-    t :> s;
-    while(1) {
-        int k;
-        t when timerafter(s+100000) :> s;
-        if ((k = XUD_GetBuffer(c_ep1, mybuffer)) < 0) {
-            XUD_ResetEndpoint(c_ep1, null);
-        }
-        if (k > 0) {
-            printintln(k);
-        }
-    }
-}
-
-/*
- * This function responds to IN requests - data for the Web/mDNS/DHCP server
- */
-void produce(chanend chan_ep1, chanend c_in) 
-{
-    XUD_ep c_ep1 = XUD_Init_Ep(chan_ep1);
+void both(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out) {
+    unsigned addrMyBuffer, addrNotBuffer;
     char mybuffer[1024] = "Monkeys in great numbers\n";
-    timer t;
-    unsigned s;
+    XUD_ep c_ep_in = XUD_Init_Ep(chan_ep_in);
+    XUD_ep c_ep_out = XUD_Init_Ep(chan_ep_out);
+    XUD_ep c_ep_interrupt = XUD_Init_Ep(chan_ep_interrupt);
+    unsigned int tmp;
+    unsigned int rp = 0, wp = 64, len = 1;
 
-    t :> s;
+    asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (mybuffer));
+    asm("add %0, %1, 0":"=r"(addrNotBuffer): "r" (notificationBuffer));
+    XUD_SetReady_In(c_ep_in, PIDn_DATA0, addrMyBuffer, 25);
+    XUD_SetReady_In(c_ep_interrupt, PIDn_DATA0, addrNotBuffer, 0);
+
+    XUD_SetReady(c_ep_out, 0);
 
     while(1) {
-        t when timerafter(s+100000000) :> s;
-        if (XUD_SetBuffer(c_ep1, mybuffer, 25) < 0) {
-            XUD_ResetEndpoint(c_ep1, null);
+        select {
+        case inuint_byref(chan_ep_in, tmp):       // Only ready when data available
+            XUD_SetData_Inline(c_ep_in, chan_ep_in);
+            len--;
+            rp = (rp + 64) & 255;
+            if (len == 0) {
+                XUD_SetNotReady(c_ep_in);
+            } else {
+                XUD_SetReady_In(c_ep_in, 0, addrMyBuffer + rp*4 + 4, (mybuffer, unsigned int[256])[rp]);
+            }
+            break;
+
+        case inuint_byref(chan_ep_interrupt, tmp): // Interrupts - always ready.
+            XUD_SetData_Inline(c_ep_interrupt, chan_ep_interrupt);
+            XUD_SetReady_In(c_ep_interrupt, 0, addrNotBuffer, 0);
+            break;
+
+
+        case inuint_byref(chan_ep_out, tmp):
+            {
+                int p = wp, tail;
+                int datalength;
+                while (!testct(chan_ep_out)) {
+                    unsigned int datum = inuint(chan_ep_out);
+                    (mybuffer, unsigned int[256])[++p] = datum;
+                }  
+                tail = inct(chan_ep_out);
+                datalength = (p-wp-1)<<2;
+                datalength += tail - 12;
+                (mybuffer, unsigned int[256])[wp] = datalength;
+                if (len != 3) {
+                    if (len == 0) {
+                        XUD_SetReady_In(c_ep_in, 0, addrMyBuffer + wp*4 + 4, datalength);
+                    }
+                    wp = (wp + 64) & 255;
+                    len++;
+                }
+                XUD_SetReady(c_ep_out, 0);
+            }
+            break;
+
+
         }
     }
 }
@@ -119,9 +135,7 @@ int main()
                                 p_usb_rst, clk, -1, XUD_SPEED_HS, null); 
         
         on stdcore[USB_CORE]: Endpoint0( c_ep_out[0], c_ep_in[0]);
-        on stdcore[USB_CORE]: consume(c_ep_out[1], keys);
-        on stdcore[USB_CORE]: produce(c_ep_in[1], keys);
-        on stdcore[USB_CORE]: interrupt(c_ep_in[2]);
+        on stdcore[USB_CORE]: both(c_ep_in[1], c_ep_in[2], c_ep_out[1]);
     }
 
     return 0;
