@@ -35,6 +35,7 @@ chanend:
     .text
     
 enableInterrupts:
+    setd  res[r0], r0            // TODO: KLUDGE
     stw   r0, dp[chanend]
     ldaw  r11, dp[kstack]
     stw   sp, dp[kstack]
@@ -59,7 +60,7 @@ loop:
     add   r1, r1, 1      // len++
     out   res[r11], r2   // Output word of data
     ldw   r2, r0[r1]     // Get next data entry
-    bf    r1, loop
+    bt    r1, loop
 done:
     outct res[r11], 0     // Signify end of stream.
     out   res[r11], r2    // Output word of data (not all bits are used)
