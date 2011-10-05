@@ -26,7 +26,7 @@ APP_NAME =
 # If the variable XCC_MAP_FLAGS is set it overrides the flags passed to 
 # xcc for the final link (mapping) stage.
 
-XCC_FLAGS = -g -Wall -O2 -report -fsubword-select -DUSB_CORE=0
+XCC_FLAGS = -g -Wall -O2 -report -fsubword-select -DUSB_CORE=0 -save-temps
 #XCC_FLAGS = -Wall -O2 -report -fsubword-select -DUSB_CORE=1 -DXDK
 
 # The USED_MODULES variable lists other module used by the application. 

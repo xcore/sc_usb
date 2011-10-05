@@ -58,32 +58,58 @@ inline void XUD_SetNotReady(XUD_ep e)
 #pragma unsafe arrays
 
 extern void setINHandler(chanend s, XUD_ep y);
-extern void enableInterrupts();
+extern void setOUTHandler(chanend s, XUD_ep y);
+extern void enableInterrupts(chanend serv);
 
-void both(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out) {
-    unsigned addrMyBuffer, addrNotBuffer;
-    int myBuffer[256];
-    XUD_ep c_ep_in = XUD_Init_Ep(chan_ep_in);
-    XUD_ep c_ep_out = XUD_Init_Ep(chan_ep_out);
-    XUD_ep c_ep_interrupt = XUD_Init_Ep(chan_ep_interrupt);
+void XUD_MYSetReady_Out(XUD_ep e, int x, unsigned bufferPtr)
+{
+    int chan_array_ptr;
+    int xud_chan;
+    int my_chan;
+    asm ("ldw %0, %1[0]":"=r"(chan_array_ptr):"r"(e));
+    asm ("ldw %0, %1[1]":"=r"(xud_chan):"r"(e));
+    asm ("ldw %0, %1[2]":"=r"(my_chan):"r"(e));
+    asm ("out res[%0], %1"::"r"(my_chan),"r"(1));  
+
+    /* Store buffer pointer */
+    asm ("stw %0, %1[5]"::"r"(bufferPtr),"r"(e));
+    
+    /* Mark EP as ready with ID */
+    asm ("stw %0, %1[0]"::"r"(xud_chan),"r"(chan_array_ptr));
+}
+
+int XUD_MYGetReady_Out(XUD_ep e, unsigned bufferPtr)
+{
+    int newPtr;
+    int tail;
+    asm ("ldw %0, %1[5]":"=r"(newPtr):"r"(e));
+    asm ("ldw %0, %1[3]":"=r"(tail):"r"(e));
+    
+    return newPtr - bufferPtr + tail - 12;
+}
+
+
+void extf(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out,
+          XUD_ep c_ep_in, XUD_ep c_ep_interrupt, XUD_ep c_ep_out,
+          unsigned addrMyBuffer, unsigned addrNotBuffer, chanend serv, int myBuffer[256]
+    )
+{
     unsigned int tmp;
     unsigned int rp = 0, wp = 64, len = 1;
-
-    asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (myBuffer));
-    asm("add %0, %1, 0":"=r"(addrNotBuffer): "r" (notificationBuffer));
-    XUD_SetReady_In(c_ep_in, PIDn_DATA0, addrMyBuffer, 25);
-    XUD_SetReady_In(c_ep_interrupt, PIDn_DATA0, addrNotBuffer, 0);
-
-    XUD_SetReady(c_ep_out, 0);
-
+#define USEOINT
+#ifdef USEOINT
+    setOUTHandler(chan_ep_out, c_ep_out);
+#endif
 #define USEINT
 #ifdef USEINT
     setINHandler(chan_ep_interrupt, c_ep_interrupt);
-    enableInterrupts();
+    setINHandler(chan_ep_in, c_ep_in);
+    enableInterrupts(serv);
 #endif
 
     while(1) {
         select {
+#ifndef USEINT
         case inuint_byref(chan_ep_in, tmp):       // Only ready when data available
             XUD_SetData_Inline(c_ep_in, chan_ep_in);
             len--;
@@ -95,12 +121,13 @@ void both(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out) {
             }
             break;
 
-#ifndef USEINT
         case inuint_byref(chan_ep_interrupt, tmp): // Interrupts - always ready.
             XUD_SetData_Inline(c_ep_interrupt, chan_ep_interrupt);
             XUD_SetReady_In(c_ep_interrupt, 0, addrNotBuffer, 0);
             break;
 #endif
+
+#ifndef USEOINT
 
         case inuint_byref(chan_ep_out, tmp):
             {
@@ -124,16 +151,74 @@ void both(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out) {
                 XUD_SetReady(c_ep_out, 0);
             }
             break;
-
-
+#endif
+        default:
+            break;
         }
     }
 }
 
+void extg(XUD_ep c_ep_in_too, XUD_ep c_ep_interrupt_too, XUD_ep c_ep_out_too, unsigned x, chanend serv) {
+    unsigned char tmp;
+    char string[] = "Hello\n";
+    int addrNotBuffer = 0x10000;
+    int addrMyBuffer = 0x10000;
+    char myOut[1000];
+    int addrMyOut;
+
+    asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (string));
+    asm("add %0, %1, 0":"=r"(addrMyOut): "r" (myOut));
+
+    XUD_MYSetReady_Out(c_ep_out_too, 0, addrMyOut);                
+
+    while(1) {
+        select {
+        case inuchar_byref(serv, tmp):
+            if(tmp == (c_ep_interrupt_too & 0xff)) {
+                XUD_SetReady_In(c_ep_interrupt_too, 0, addrNotBuffer, 0);
+            } else if (tmp == (c_ep_in_too & 0xff)) {
+                XUD_SetReady_In(c_ep_in_too, 0, addrMyBuffer, 6);
+            } else if (tmp == (c_ep_out_too & 0xff)) {
+                int len = XUD_MYGetReady_Out(c_ep_out_too, addrMyOut);
+                XUD_MYSetReady_Out(c_ep_out_too, 0, addrMyOut);
+            }
+            break;
+        }
+    }
+}
+
+void both(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out) {
+    unsigned addrMyBuffer, addrNotBuffer;
+    int myBuffer[256];
+    XUD_ep c_ep_in = XUD_Init_Ep(chan_ep_in);
+    XUD_ep c_ep_out = XUD_Init_Ep(chan_ep_out);
+    XUD_ep c_ep_interrupt = XUD_Init_Ep(chan_ep_interrupt);
+    XUD_ep c_ep_interrupt_too = c_ep_interrupt;
+    XUD_ep c_ep_in_too = c_ep_in;
+    XUD_ep c_ep_out_too = c_ep_out;
+    chan serv;
+
+    asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (myBuffer));
+    asm("add %0, %1, 0":"=r"(addrNotBuffer): "r" (notificationBuffer));
+    XUD_SetReady_In(c_ep_in, PIDn_DATA0, addrMyBuffer, 25);
+    XUD_SetReady_In(c_ep_interrupt, PIDn_DATA0, addrNotBuffer, 0);
+
+//    XUD_MYSetReady(c_ep_out, 0);
+
+    par
+    {
+        extf(chan_ep_in, chan_ep_interrupt, chan_ep_out,
+             c_ep_in, c_ep_interrupt, c_ep_out,
+             addrMyBuffer, addrNotBuffer, serv, myBuffer);
+        extg(c_ep_in_too, c_ep_interrupt_too, c_ep_out_too, addrNotBuffer, serv);
+    }
+}
+
+
 /*
  * The main function fires of three processes: the XUD manager, Endpoint 0,
  * and hid. An array of channels is used for both in and out endpoints,
- * endpoint zero requires both, hid is just an IN endpoint.
+ * endpoint zero requires both.
  */
 int main() 
 {
