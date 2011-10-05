@@ -31,7 +31,6 @@ on stdcore[0]: port ps2_data = XS1_PORT_1L;
 void Endpoint0( chanend c_ep0_out, chanend c_ep0_in);
 
 
-char notificationBuffer[7];
 
 
 inline void XUD_SetNotReady(XUD_ep e)
@@ -40,8 +39,6 @@ inline void XUD_SetNotReady(XUD_ep e)
   asm ("ldw %0, %1[0]":"=r"(chan_array_ptr):"r"(e));
   asm ("stw %0, %1[0]"::"r"(0),"r"(chan_array_ptr));
 }
-
-#pragma unsafe arrays
 
 extern void setINHandler(chanend s, XUD_ep y);
 extern void setOUTHandler(chanend s, XUD_ep y);
@@ -84,6 +81,8 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
 
     unsigned char tmp;
     char myOut[1000];
+    char notificationBuffer[7];
+
     int addrMyOut;
     char bufToDevice[2][256];
     char bufToHost[2][256];
@@ -104,9 +103,12 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
     outuchar(serv, c_ep_interrupt);
     outuchar(serv, c_ep_in);
 
-    asm("add %0, %1, 0":"=r"(addrMyOut): "r" (myOut));
+//    asm("add %0, %1, 0":"=r"(addrMyOut): "r" (myOut));
 
-    XUD_MYSetReady_Out(c_ep_out, 0, addrMyOut);                
+//    XUD_MYSetReady_Out(c_ep_out, 0, addrMyOut);                
+
+    asm("add %0, %1, 0":"=r"(addrMyOut): "r" (bufToDevice[!devCurrent]));
+    XUD_MYSetReady_Out(c_ep_out, 0, addrMyOut);
 
     while(1) {
         select {
@@ -124,7 +126,6 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
                 }
             } else if (tmp == (c_ep_out & 0xff)) {
                 int l = XUD_MYGetReady_Out(c_ep_out, addrMyOut);
-//                printintln(l);
                 devLen[!devCurrent] = l;
                 if (devLen[devCurrent] == 0) {
                     devCurrent = !devCurrent;
