@@ -9,6 +9,7 @@
 
 #include "xud.h"
 #include "usb.h"
+#include "xud_interrupt_driven.h"
 
 #define XUD_EP_COUNT_OUT   2
 #define XUD_EP_COUNT_IN    3
@@ -31,46 +32,6 @@ on stdcore[0]: port ps2_data = XS1_PORT_1L;
 void Endpoint0( chanend c_ep0_out, chanend c_ep0_in);
 
 
-
-
-inline void XUD_SetNotReady(XUD_ep e)
-{
-  int chan_array_ptr;
-  asm ("ldw %0, %1[0]":"=r"(chan_array_ptr):"r"(e));
-  asm ("stw %0, %1[0]"::"r"(0),"r"(chan_array_ptr));
-}
-
-extern void setINHandler(chanend s, XUD_ep y);
-extern void setOUTHandler(chanend s, XUD_ep y);
-extern void enableInterrupts(chanend serv);
-
-void XUD_MYSetReady_Out(XUD_ep e, int x, unsigned bufferPtr)
-{
-    int chan_array_ptr;
-    int xud_chan;
-    int my_chan;
-    asm ("ldw %0, %1[0]":"=r"(chan_array_ptr):"r"(e));
-    asm ("ldw %0, %1[1]":"=r"(xud_chan):"r"(e));
-    asm ("ldw %0, %1[2]":"=r"(my_chan):"r"(e));
-    asm ("out res[%0], %1"::"r"(my_chan),"r"(1));  
-
-    /* Store buffer pointer */
-    asm ("stw %0, %1[5]"::"r"(bufferPtr),"r"(e));
-    
-    /* Mark EP as ready with ID */
-    asm ("stw %0, %1[0]"::"r"(xud_chan),"r"(chan_array_ptr));
-}
-
-int XUD_MYGetReady_Out(XUD_ep e, unsigned bufferPtr) {
-    int newPtr;
-    int tail;
-    asm ("ldw %0, %1[5]":"=r"(newPtr):"r"(e));
-    asm ("ldw %0, %1[3]":"=r"(tail):"r"(e));
-    
-    return newPtr - bufferPtr + tail - 16;
-}
-
-
 void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out, chanend vcomToDevice, chanend vcomToHost) {
     unsigned addrMyBuffer, addrNotBuffer;
     XUD_ep c_ep_in = XUD_Init_Ep(chan_ep_in);
@@ -80,10 +41,9 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
     chan serv;
 
     unsigned char tmp;
-    char myOut[1000];
     char notificationBuffer[7];
 
-    int addrMyOut;
+    int addrLatestOut;
     char bufToDevice[2][256];
     char bufToHost[2][256];
     int hostLen = 0, devLen[2] = {0,0};
@@ -94,44 +54,43 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
 
     asm("add %0, %1, 0":"=r"(addrNotBuffer): "r" (notificationBuffer));
 
-    setOUTHandler(chan_ep_out, c_ep_out);
-    setINHandler(chan_ep_interrupt, c_ep_interrupt);
-    setINHandler(chan_ep_in, c_ep_in);
+    // First set handlers on each of the three XUD endpoints, then enable interrupts
+    // and store the server channel
+    XUD_interrupt_OUT(chan_ep_out, c_ep_out);
+    XUD_interrupt_IN(chan_ep_interrupt, c_ep_interrupt);
+    XUD_interrupt_IN(chan_ep_in, c_ep_in);
+    XUD_interrupt_enable(serv);
 
-    enableInterrupts(serv);
-
+    // Now state that we are ready to listen to both IN and interrupt requests.
     outuchar(serv, c_ep_interrupt);
     outuchar(serv, c_ep_in);
 
-//    asm("add %0, %1, 0":"=r"(addrMyOut): "r" (myOut));
-
-//    XUD_MYSetReady_Out(c_ep_out, 0, addrMyOut);                
-
-    asm("add %0, %1, 0":"=r"(addrMyOut): "r" (bufToDevice[!devCurrent]));
-    XUD_MYSetReady_Out(c_ep_out, 0, addrMyOut);
+    // And make a buffer available for OUT requests.
+    asm("add %0, %1, 0":"=r"(addrLatestOut): "r" (bufToDevice[!devCurrent]));
+    XUD_provide_OUT_buffer(c_ep_out, addrLatestOut);
 
     while(1) {
         select {
         case inuchar_byref(serv, tmp):
             if(tmp == (c_ep_interrupt & 0xff)) {
-                XUD_SetReady_In(c_ep_interrupt, 0, addrNotBuffer, 0);
+                XUD_provide_IN_buffer(c_ep_interrupt, 0, addrNotBuffer, 0);
             } else if (tmp == (c_ep_in & 0xff)) {
                 if (hostLen != 0) {
                     asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (bufToHost[hostCurrent]));
-                    XUD_SetReady_In(c_ep_in, 0, addrMyBuffer, hostLen);
+                    XUD_provide_IN_buffer(c_ep_in, 0, addrMyBuffer, hostLen);
                     hostCurrent = !hostCurrent;
                     hostLen = 0;
                 } else {
                     hostWaiting = 1;
                 }
             } else if (tmp == (c_ep_out & 0xff)) {
-                int l = XUD_MYGetReady_Out(c_ep_out, addrMyOut);
+                int l = XUD_compute_OUT_length(c_ep_out, addrLatestOut);
                 devLen[!devCurrent] = l;
                 if (devLen[devCurrent] == 0) {
                     devCurrent = !devCurrent;
                     devRd = 0;
-                    asm("add %0, %1, 0":"=r"(addrMyOut): "r" (bufToDevice[!devCurrent]));
-                    XUD_MYSetReady_Out(c_ep_out, 0, addrMyOut);
+                    asm("add %0, %1, 0":"=r"(addrLatestOut): "r" (bufToDevice[!devCurrent]));
+                    XUD_provide_OUT_buffer(c_ep_out, addrLatestOut);
                 } else {
                     devWaiting = 1;
                 }
@@ -141,7 +100,7 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
             bufToHost[hostCurrent][hostLen++] = x;
             if (hostWaiting) {
                 asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (bufToHost[hostCurrent]));
-                XUD_SetReady_In(c_ep_in, 0, addrMyBuffer, hostLen);
+                XUD_provide_IN_buffer(c_ep_in, 0, addrMyBuffer, hostLen);
                 hostCurrent = !hostCurrent;
                 hostLen = 0;
                 hostWaiting = 0;
@@ -154,8 +113,8 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
                 if (devWaiting) {
                     devCurrent = !devCurrent;
                     devRd = 0;
-                    asm("add %0, %1, 0":"=r"(addrMyOut): "r" (bufToDevice[!devCurrent]));
-                    XUD_MYSetReady_Out(c_ep_out, 0, addrMyOut);                    
+                    asm("add %0, %1, 0":"=r"(addrLatestOut): "r" (bufToDevice[!devCurrent]));
+                    XUD_provide_OUT_buffer(c_ep_out, addrLatestOut);                    
                     devWaiting = 0;
                 }
             }
@@ -167,9 +126,6 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
 
 
 void userThread(chanend vcomToDevice, chanend vcomToHost) {
-    timer t;
-    unsigned s;
-    char a = 'a';
     while(1) {
         char x;
         vcomToDevice <: 0; // send request for char

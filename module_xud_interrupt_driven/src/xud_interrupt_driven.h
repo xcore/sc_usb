@@ -1,0 +1,59 @@
+/** This function installs an interrupt handler on the given XUD IN endpoint.
+ * This may either be a bulk IN endpoint or an interrupt-endpoint.
+ * Both the channel and the XUD endpoint are to be provided.
+ *
+ * \param c     channel on which the XUD is providing data for this endpoint
+ *
+ * \param x     XUD endpoint associated with the above channel
+ */
+extern void XUD_interrupt_IN(chanend c, XUD_ep x);
+
+/** This function installs an interrupt handler on the given XUD OUT endpoint.
+ * This must be a bulk out endpoint.
+ * Both the channel and the XUD endpoint are to be provided.
+ *
+ * \param c     channel on which the XUD is providing data for this endpoint
+ *
+ * \param x     XUD endpoint associated with the above channel
+ */
+extern void XUD_interrupt_OUT(chanend c, XUD_ep x);
+
+/** This function enables the interrupts and installs the synchronisation
+ * channel. Every handled packet will result in a single token being send
+ * over the channel. The channel must be declared as a chan and not be
+ * passed to any other thread (it will point to itself!). The token sent is
+ * the last byte of the XUD_ep variable of the endpoint that got handled.
+ *
+ * If it is an IN endpoint, then it means that data has been taken away by
+ * the host, and new data is to be provided using the XUD_provide_IN_buffer
+ * call.
+ *
+ * If it is an OUT endpoint then the datalength is to be computed by
+ * calling XUD_compute_OUT_length, and a new buffer is to be provided using
+ * XUD_provide_OUT_buffer.
+ *
+ * In either case, the endpoint will be NAKed until a new buffer is
+ * provided.
+ *
+ * \param serv channel over which the interrupt handlers will send the end point IDs.
+ */
+extern void XUD_interrupt_enable(chanend serv);
+
+/** This function makes a buffer with data available to an IN endpoint. The
+ * buffer is located at the given address/length, and a PID is provided
+ * (unless it is 0 in which case it is created as required by the USB
+ * spec).
+ */
+extern void XUD_provide_IN_buffer(XUD_ep e, int pid, unsigned addr, unsigned len);
+
+/** This function makes a buffer available to an OUT endpoint. The buffer
+ * must be large enough to hold a maxPacketSize on that endpoint plus 6
+ * bytes (!).
+ */ 
+extern void XUD_provide_OUT_buffer(XUD_ep e, unsigned bufferPtr);
+
+/** This function computes the number of bytes received in the given buffer
+ * on the given endpoint. It should be called before a new buffer is
+ * installed.
+ */ 
+extern int XUD_compute_OUT_length(XUD_ep e, unsigned bufferPtr);

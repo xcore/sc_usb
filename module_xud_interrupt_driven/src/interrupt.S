@@ -5,18 +5,18 @@
 
 #include <xs1.h>
     
-    .globl setOUTHandler
-    .globl setOUTHandler.nstackwords
-    .linkset setOUTHandler.nstackwords, 0
+    .globl XUD_interrupt_OUT
+    .globl XUD_interrupt_OUT.nstackwords
+    .linkset XUD_interrupt_OUT.nstackwords, 0
     
-    .globl setINHandler
-    .globl setINHandler.nstackwords
-    .linkset setINHandler.nstackwords, 0
+    .globl XUD_interrupt_IN
+    .globl XUD_interrupt_IN.nstackwords
+    .linkset XUD_interrupt_IN.nstackwords, 0
 
-setOUTHandler:
+XUD_interrupt_OUT:
     ldap  r11, OUT_interrupt
     bu    setHandler
-setINHandler:
+XUD_interrupt_IN:
     ldap  r11, IN_interrupt
 setHandler: 
     setc  res[r0], XS1_SETC_IE_MODE_INTERRUPT
@@ -27,9 +27,9 @@ setHandler:
     retsp 0
 
 
-    .globl enableInterrupts
-    .globl enableInterrupts.nstackwords
-    .linkset enableInterrupts.nstackwords, 0
+    .globl XUD_interrupt_enable
+    .globl XUD_interrupt_enable.nstackwords
+    .linkset XUD_interrupt_enable.nstackwords, 0
 
     .section .dp.data,       "adw", @progbits
     .word 0, 0, 0, 0, 0, 0
@@ -39,7 +39,7 @@ chanend:
     .word 0
     .text
     
-enableInterrupts:
+XUD_interrupt_enable:
     setd  res[r0], r0            // TODO: KLUDGE
     stw   r0, dp[chanend]
     ldaw  r11, dp[kstack]

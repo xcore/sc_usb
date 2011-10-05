@@ -31,7 +31,7 @@ XCC_FLAGS = -g -Wall -O2 -report -fsubword-select -DUSB_CORE=0 -save-temps
 
 # The USED_MODULES variable lists other module used by the application. 
 
-USED_MODULES = module_usb_shared module_xud
+USED_MODULES = module_usb_shared module_xud module_xud_interrupt_driven
 
 #=============================================================================
 # The following part of the Makefile includes the common build infrastructure
