@@ -43,17 +43,31 @@ extern void XUD_interrupt_enable(chanend serv);
  * buffer is located at the given address/length, and a PID is provided
  * (unless it is 0 in which case it is created as required by the USB
  * spec).
+ *
+ * \param  e      Endpoint to which to supply a buffer with data
+ * \param  pid    PID to use for the next IN request - or zero if toggling PID0/PID1
+ * \param  buffer Address of the buffer
+ * \param  len    Number of bytes in the buffer, must be less than wMaxPacketSize on
+ *                this endpoint
  */
-extern void XUD_provide_IN_buffer(XUD_ep e, int pid, unsigned addr, unsigned len);
+extern void XUD_provide_IN_buffer(XUD_ep e, int pid, unsigned buffer[], unsigned len);
 
 /** This function makes a buffer available to an OUT endpoint. The buffer
  * must be large enough to hold a maxPacketSize on that endpoint plus 6
  * bytes (!).
+ *
+ * \param  e         Endpoint on which to supply a buffer.
+ * \param  bufferPtr Buffer in which to receive contents of next OUT on this endpoint
  */ 
-extern void XUD_provide_OUT_buffer(XUD_ep e, unsigned bufferPtr);
+extern void XUD_provide_OUT_buffer(XUD_ep e, unsigned buffer);
 
 /** This function computes the number of bytes received in the given buffer
  * on the given endpoint. It should be called before a new buffer is
  * installed.
+ *
+ * \param  e         Endpoint on which to compute the length of the received buffer
+ * \param  bufferPtr Buffer on which to compute the length
+ * 
+ * \return           The length of the block of data just received.
  */ 
-extern int XUD_compute_OUT_length(XUD_ep e, unsigned bufferPtr);
+extern int XUD_compute_OUT_length(XUD_ep e, unsigned buffer);

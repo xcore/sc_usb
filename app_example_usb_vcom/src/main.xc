@@ -42,11 +42,11 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
     chan serv;
 
     unsigned char tmp;
-    char notificationBuffer[7];
+    unsigned int notificationBuffer[2];
 
     int addrLatestOut;
-    char bufToDevice[2][MAX_BUF];
-    char bufToHost[2][MAX_BUF];
+    char bufToDevice[2][MAX_BUF+8];
+    unsigned int bufToHost[2][MAX_BUF/sizeof(int)+2];
     int hostLen = 0, devLen[2] = {0,0};
     int devRd = 0;
     int devCurrent = 0, hostCurrent = 0;
@@ -74,11 +74,11 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
         select {
         case inuchar_byref(serv, tmp):
             if(tmp == (c_ep_interrupt & 0xff)) {
-                XUD_provide_IN_buffer(c_ep_interrupt, 0, addrNotBuffer, 0);
+                XUD_provide_IN_buffer(c_ep_interrupt, 0, notificationBuffer, 0);
             } else if (tmp == (c_ep_in & 0xff)) {
                 if (hostLen != 0) {
                     asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (bufToHost[hostCurrent]));
-                    XUD_provide_IN_buffer(c_ep_in, 0, addrMyBuffer, hostLen);
+                    XUD_provide_IN_buffer(c_ep_in, 0, bufToHost[hostCurrent], hostLen);
                     hostCurrent = !hostCurrent;
                     hostLen = 0;
                 } else {
@@ -98,10 +98,10 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
             }
             break;
         case hostLen != MAX_BUF => vcomToHost :> char x:
-            bufToHost[hostCurrent][hostLen++] = x;
+            (bufToHost[hostCurrent], unsigned char[])[hostLen++] = x;
             if (hostWaiting) {
                 asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (bufToHost[hostCurrent]));
-                XUD_provide_IN_buffer(c_ep_in, 0, addrMyBuffer, hostLen);
+                XUD_provide_IN_buffer(c_ep_in, 0, bufToHost[hostCurrent], hostLen);
                 hostCurrent = !hostCurrent;
                 hostLen = 0;
                 hostWaiting = 0;

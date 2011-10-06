@@ -31,6 +31,8 @@ int XUD_compute_OUT_length(XUD_ep e, unsigned bufferPtr) {
     return newPtr - bufferPtr + tail - 16;
 }
 
-void XUD_provide_IN_buffer(XUD_ep e, int pid, unsigned addr, unsigned len) {
+void XUD_provide_IN_buffer(XUD_ep e, int pid, unsigned buffer[], unsigned len) {
+    unsigned addr;
+    asm("add %0, %1, 0":"=r"(addr): "r" (buffer));
     XUD_SetReady_In(e, pid, addr, len);
 }
