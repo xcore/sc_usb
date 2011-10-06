@@ -26,15 +26,11 @@ XUD_EpType epTypeTableIn[XUD_EP_COUNT_IN] =   {XUD_EPTYPE_CTL, XUD_EPTYPE_BUL, X
 on stdcore[USB_CORE]: out port p_usb_rst = XS1_PORT_1I;
 on stdcore[USB_CORE]: clock    clk       = XS1_CLKBLK_3;
 
-on stdcore[0]: port ps2_clock = XS1_PORT_1A;
-on stdcore[0]: port ps2_data = XS1_PORT_1L;
-
 void Endpoint0( chanend c_ep0_out, chanend c_ep0_in);
 
 #define MAX_BUF 512
 
 void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out, chanend vcomToDevice, chanend vcomToHost) {
-    unsigned addrMyBuffer, addrNotBuffer;
     XUD_ep c_ep_in = XUD_Init_Ep(chan_ep_in);
     XUD_ep c_ep_out = XUD_Init_Ep(chan_ep_out);
     XUD_ep c_ep_interrupt = XUD_Init_Ep(chan_ep_interrupt);
@@ -44,16 +40,13 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
     unsigned char tmp;
     unsigned int notificationBuffer[2];
 
-    int addrLatestOut;
-    char bufToDevice[2][MAX_BUF+8];
+    unsigned int bufToDevice[2][MAX_BUF+8];
     unsigned int bufToHost[2][MAX_BUF/sizeof(int)+2];
     int hostLen = 0, devLen[2] = {0,0};
     int devRd = 0;
     int devCurrent = 0, hostCurrent = 0;
     int hostWaiting = 0;
     int devWaiting = 0;
-
-    asm("add %0, %1, 0":"=r"(addrNotBuffer): "r" (notificationBuffer));
 
     // First set handlers on each of the three XUD endpoints, then enable interrupts
     // and store the server channel
@@ -67,8 +60,7 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
     outuchar(serv, c_ep_in);
 
     // And make a buffer available for OUT requests.
-    asm("add %0, %1, 0":"=r"(addrLatestOut): "r" (bufToDevice[!devCurrent]));
-    XUD_provide_OUT_buffer(c_ep_out, addrLatestOut);
+    XUD_provide_OUT_buffer(c_ep_out, bufToDevice[!devCurrent]);
 
     while(1) {
         select {
@@ -77,7 +69,6 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
                 XUD_provide_IN_buffer(c_ep_interrupt, 0, notificationBuffer, 0);
             } else if (tmp == (c_ep_in & 0xff)) {
                 if (hostLen != 0) {
-                    asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (bufToHost[hostCurrent]));
                     XUD_provide_IN_buffer(c_ep_in, 0, bufToHost[hostCurrent], hostLen);
                     hostCurrent = !hostCurrent;
                     hostLen = 0;
@@ -85,13 +76,12 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
                     hostWaiting = 1;
                 }
             } else if (tmp == (c_ep_out & 0xff)) {
-                int l = XUD_compute_OUT_length(c_ep_out, addrLatestOut);
+                int l = XUD_compute_OUT_length(c_ep_out, bufToDevice[!devCurrent]);
                 devLen[!devCurrent] = l;
                 if (devLen[devCurrent] == 0) {
                     devCurrent = !devCurrent;
                     devRd = 0;
-                    asm("add %0, %1, 0":"=r"(addrLatestOut): "r" (bufToDevice[!devCurrent]));
-                    XUD_provide_OUT_buffer(c_ep_out, addrLatestOut);
+                    XUD_provide_OUT_buffer(c_ep_out, bufToDevice[!devCurrent]);
                 } else {
                     devWaiting = 1;
                 }
@@ -100,7 +90,6 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
         case hostLen != MAX_BUF => vcomToHost :> char x:
             (bufToHost[hostCurrent], unsigned char[])[hostLen++] = x;
             if (hostWaiting) {
-                asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (bufToHost[hostCurrent]));
                 XUD_provide_IN_buffer(c_ep_in, 0, bufToHost[hostCurrent], hostLen);
                 hostCurrent = !hostCurrent;
                 hostLen = 0;
@@ -108,14 +97,13 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
             }
             break;
         case devLen[devCurrent] != 0 => vcomToDevice :> int _:
-            vcomToDevice <: (char) bufToDevice[devCurrent][devRd++];
+            vcomToDevice <: (bufToDevice[devCurrent], unsigned char[])[devRd++];
             devLen[devCurrent]--;
             if (devLen[devCurrent] == 0) {
                 if (devWaiting) {
                     devCurrent = !devCurrent;
                     devRd = 0;
-                    asm("add %0, %1, 0":"=r"(addrLatestOut): "r" (bufToDevice[!devCurrent]));
-                    XUD_provide_OUT_buffer(c_ep_out, addrLatestOut);                    
+                    XUD_provide_OUT_buffer(c_ep_out, bufToDevice[!devCurrent]);                    
                     devWaiting = 0;
                 }
             }
@@ -126,6 +114,9 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
 }
 
 
+/*
+ * The user thread: request characters over one channel, supply characters over the other...
+ */
 void userThread(chanend vcomToDevice, chanend vcomToHost) {
     while(1) {
         char x;
@@ -137,9 +128,8 @@ void userThread(chanend vcomToDevice, chanend vcomToHost) {
 }
 
 /*
- * The main function fires of three processes: the XUD manager, Endpoint 0,
- * and hid. An array of channels is used for both in and out endpoints,
- * endpoint zero requires both.
+ * The main function fires of four processes: the XUD manager, Endpoint 0, the
+ * buffering thread, and the user thread.
  */
 int main() 
 {

@@ -1,3 +1,8 @@
+// Copyright (c) 2011, XMOS Ltd, All rights reserved
+// This software is freely distributable under a derivative of the
+// University of Illinois/NCSA Open Source License posted in
+// LICENSE.txt and at <http://github.xcore.com/>
+
 /** This function installs an interrupt handler on the given XUD IN endpoint.
  * This may either be a bulk IN endpoint or an interrupt-endpoint.
  * Both the channel and the XUD endpoint are to be provided.
@@ -56,18 +61,18 @@ extern void XUD_provide_IN_buffer(XUD_ep e, int pid, unsigned buffer[], unsigned
  * must be large enough to hold a maxPacketSize on that endpoint plus 6
  * bytes (!).
  *
- * \param  e         Endpoint on which to supply a buffer.
- * \param  bufferPtr Buffer in which to receive contents of next OUT on this endpoint
+ * \param  e      Endpoint on which to supply a buffer.
+ * \param  buffer Buffer in which to receive contents of next OUT on this endpoint
  */ 
-extern void XUD_provide_OUT_buffer(XUD_ep e, unsigned buffer);
+extern void XUD_provide_OUT_buffer(XUD_ep e, unsigned buffer[]);
 
 /** This function computes the number of bytes received in the given buffer
  * on the given endpoint. It should be called before a new buffer is
  * installed.
  *
- * \param  e         Endpoint on which to compute the length of the received buffer
- * \param  bufferPtr Buffer on which to compute the length
+ * \param  e      Endpoint on which to compute the length of the received buffer
+ * \param  buffer Buffer on which to compute the length
  * 
- * \return           The length of the block of data just received.
+ * \return        The length of the block of data just received.
  */ 
-extern int XUD_compute_OUT_length(XUD_ep e, unsigned buffer);
+extern int XUD_compute_OUT_length(XUD_ep e, unsigned buffer[]);

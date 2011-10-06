@@ -14,10 +14,13 @@ Key Features
 ============
 
 * Source code to deal with common requests of endpoint0
+* Source code to deal with multiple endpoints in a single thread using
+  interrupts (experimental)
 * Example Mouse HID application
 * Example combined Mouse/Keyboard HID application
-* Example ECM (Ethernet over USB) application
-* Example Virtual COM port application
+* Example CDC/ECM (Ethernet over USB) application
+* Example CDC/PSTN (Virtual COM port) application
+* Example CDC/EEM (Ethernet Emulation) application (experimental)
 
 To Do
 =====
@@ -32,7 +35,7 @@ Firmware Overview
 
 This module contains the code that deals with the common requests on
 endpoint0, and a series of example USB devices that can be built, including
-HID, and two CDC devices (Ethernet and Modem). 
+HID, and three CDC devices (Ethernet, Modem). 
 
 Known Issues
 ============
@@ -44,6 +47,8 @@ Known Issues
 * Some devices are based on a funky keyboard with two embedded L1s, other
   on the L1-audio board. All should be ported to the L1-audio board so that
   there is a platform on which this code can be ran.
+
+* The EEM example needs testing - it needs a host that supports EEM!
 
 Required Repositories
 ================

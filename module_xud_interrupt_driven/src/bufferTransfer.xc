@@ -1,3 +1,8 @@
+// Copyright (c) 2011, XMOS Ltd, All rights reserved
+// This software is freely distributable under a derivative of the
+// University of Illinois/NCSA Open Source License posted in
+// LICENSE.txt and at <http://github.xcore.com/>
+
 #include "xud.h"
 #include "xud_interrupt_driven.h"
 
@@ -5,7 +10,7 @@ extern void setINHandler(chanend s, XUD_ep y);
 extern void setOUTHandler(chanend s, XUD_ep y);
 extern void enableInterrupts(chanend serv);
 
-void XUD_provide_OUT_buffer(XUD_ep e, unsigned bufferPtr)
+void XUD_provide_OUT_buffer(XUD_ep e, unsigned buffer[])
 {
     int chan_array_ptr;
     int xud_chan;
@@ -16,19 +21,21 @@ void XUD_provide_OUT_buffer(XUD_ep e, unsigned bufferPtr)
     asm ("out res[%0], %1"::"r"(my_chan),"r"(1));  
 
     /* Store buffer pointer */
-    asm ("stw %0, %1[5]"::"r"(bufferPtr),"r"(e));
+    asm ("stw %0, %1[5]"::"r"(buffer),"r"(e));
     
     /* Mark EP as ready with ID */
     asm ("stw %0, %1[0]"::"r"(xud_chan),"r"(chan_array_ptr));
 }
 
-int XUD_compute_OUT_length(XUD_ep e, unsigned bufferPtr) {
+int XUD_compute_OUT_length(XUD_ep e, unsigned buffer[]) {
     int newPtr;
     int tail;
+    unsigned addr;
+    asm("add %0, %1, 0":"=r"(addr): "r" (buffer));
     asm ("ldw %0, %1[5]":"=r"(newPtr):"r"(e));
     asm ("ldw %0, %1[3]":"=r"(tail):"r"(e));
     
-    return newPtr - bufferPtr + tail - 16;
+    return newPtr - addr + tail - 16;
 }
 
 void XUD_provide_IN_buffer(XUD_ep e, int pid, unsigned buffer[], unsigned len) {
