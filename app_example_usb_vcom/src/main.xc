@@ -31,6 +31,7 @@ on stdcore[0]: port ps2_data = XS1_PORT_1L;
 
 void Endpoint0( chanend c_ep0_out, chanend c_ep0_in);
 
+#define MAX_BUF 512
 
 void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan_ep_out, chanend vcomToDevice, chanend vcomToHost) {
     unsigned addrMyBuffer, addrNotBuffer;
@@ -44,8 +45,8 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
     char notificationBuffer[7];
 
     int addrLatestOut;
-    char bufToDevice[2][256];
-    char bufToHost[2][256];
+    char bufToDevice[2][MAX_BUF];
+    char bufToHost[2][MAX_BUF];
     int hostLen = 0, devLen[2] = {0,0};
     int devRd = 0;
     int devCurrent = 0, hostCurrent = 0;
@@ -96,7 +97,7 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
                 }
             }
             break;
-        case hostLen != 255 => vcomToHost :> char x:
+        case hostLen != MAX_BUF => vcomToHost :> char x:
             bufToHost[hostCurrent][hostLen++] = x;
             if (hostWaiting) {
                 asm("add %0, %1, 0":"=r"(addrMyBuffer): "r" (bufToHost[hostCurrent]));
