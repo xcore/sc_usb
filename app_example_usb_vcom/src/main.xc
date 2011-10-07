@@ -14,7 +14,6 @@
 #define XUD_EP_COUNT_OUT   2
 #define XUD_EP_COUNT_IN    3
 
-#define USB_RST_PORT    XS1_PORT_32A
 #define USB_CORE        0
 
 
@@ -23,7 +22,7 @@ XUD_EpType epTypeTableOut[XUD_EP_COUNT_OUT] = {XUD_EPTYPE_CTL, XUD_EPTYPE_BUL};
 XUD_EpType epTypeTableIn[XUD_EP_COUNT_IN] =   {XUD_EPTYPE_CTL, XUD_EPTYPE_BUL, XUD_EPTYPE_INT};
 
 /* USB Port declarations */
-on stdcore[USB_CORE]: out port p_usb_rst = XS1_PORT_1I;
+on stdcore[USB_CORE]: out port p_usb_rst = XS1_PORT_32A;
 on stdcore[USB_CORE]: clock    clk       = XS1_CLKBLK_3;
 
 void Endpoint0( chanend c_ep0_out, chanend c_ep0_in);
@@ -40,7 +39,7 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_interrupt, chanend chan
     unsigned char tmp;
     unsigned int notificationBuffer[2];
 
-    unsigned int bufToDevice[2][MAX_BUF+8];
+    unsigned int bufToDevice[2][MAX_BUF/sizeof(int)+2];
     unsigned int bufToHost[2][MAX_BUF/sizeof(int)+2];
     int hostLen = 0, devLen[2] = {0,0};
     int devRd = 0;

@@ -7,11 +7,11 @@
     
     .globl XUD_interrupt_OUT
     .globl XUD_interrupt_OUT.nstackwords
-    .linkset XUD_interrupt_OUT.nstackwords, 0
+    .linkset XUD_interrupt_OUT.nstackwords, 500
     
     .globl XUD_interrupt_IN
     .globl XUD_interrupt_IN.nstackwords
-    .linkset XUD_interrupt_IN.nstackwords, 0
+    .linkset XUD_interrupt_IN.nstackwords, 500
 
 XUD_interrupt_OUT:
     ldap  r11, OUT_interrupt
@@ -29,7 +29,7 @@ setHandler:
 
     .globl XUD_interrupt_enable
     .globl XUD_interrupt_enable.nstackwords
-    .linkset XUD_interrupt_enable.nstackwords, 0
+    .linkset XUD_interrupt_enable.nstackwords, 500
 
     .section .dp.data,       "adw", @progbits
     .word 0, 0, 0, 0, 0, 0

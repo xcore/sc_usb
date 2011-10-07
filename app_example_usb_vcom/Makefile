@@ -5,7 +5,7 @@
 
 # This example runs on the XS-L1 usb audio board. It doesn't use any of
 # the audio functionality and just uses the USB functionality of the board
-TARGET = keyboard
+TARGET = L1_AUDIO
 #TARGET = XDK
 
 #Use G version of XUD
