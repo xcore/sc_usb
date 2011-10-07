@@ -14,6 +14,7 @@
 #include "q.h"
 #include "sim.h"
 #include "packetManager.h"
+#include "ethernet.h"
 #include "xud_interrupt_driven.h"
 
 #define XUD_EP_COUNT_OUT   2
@@ -48,12 +49,13 @@ static void transferPacketToIN(XUD_ep c_ep_in, struct queue &toHost, int head, i
     toHost.data[head].from += WMAXPACKETSIZE;
 }
 
+struct queue toHost;
 
 void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out, chanend packetsToDevice, chanend packetsToHost) {
     XUD_ep c_ep_in = XUD_Init_Ep(chan_ep_in);
     XUD_ep c_ep_out = XUD_Init_Ep(chan_ep_out);
     unsigned char tmp;
-    struct queue toHost, toDev;
+    struct queue toDev;
     int hostWaiting = 1;
     int devWaiting = 0;
     int userToDeviceWaiting = 0;
@@ -116,6 +118,7 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out, chanend packetsToD
                 }
             }
             break;
+#if 0
         case !qIsFull(toHost) => packetsToHost :> int bufNum:
             if (bufNum == NULL_PACKET) {
                 packetsToHost <: packetBufferAlloc();
@@ -147,26 +150,24 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out, chanend packetsToD
                 }
             }
             break;
+#endif
+        }
+        if (!qIsEmpty(toDev)) {
+            int index = qPeek(toDev);
+            int packetNum = toDev.data[index].packet;
+            int packetLen = toDev.data[index].len;
+            handlePacket(packetNum, packetLen);
+            packetBufferFree(packetNum);
+            qGet(toDev);
+        }
+        if (!qIsEmpty(toHost) && hostWaiting) {
+            int index = qPeek(toHost);
+            int len = toHost.data[index].len;
+            hostWaiting = 0;
+            transferPacketToIN(c_ep_in, toHost, index, len > WMAXPACKETSIZE ? WMAXPACKETSIZE : len);
         }
     }
 
-}
-
-int ipAddressOurs;
-int ipAddressTheirs;
-char macAddressOurs[6];
-char macAddressTheirs[6] = {0x00, 0x22, 0x97, 0x08, 0xA0, 0x03};
-
-void handlePacket(unsigned int packet[], int len) {
-    if ((packet, short[])[6] == 0x0608) {
-        if ((packet, short[])[14] == (packet, short[])[19] &&
-            (packet, short[])[15] == (packet, short[])[20]) {
-            int ipAddressOurs, ipAddressTheirs = byterev(packet[7]);
-            ipAddressOurs = (ipAddressTheirs & 0xffff0000) |
-                (((ipAddressTheirs & 0xffff)-0x100 + 1) % 0xfe00+ 0x100);
-            
-        }
-    }
 }
 
 void userThreadToDevice(chanend packetsToDevice) {
@@ -175,16 +176,10 @@ void userThreadToDevice(chanend packetsToDevice) {
         packetsToDevice <: NULL_PACKET; // send request for packet
         packetsToDevice :> packetNum;  // Gobble it up.
         packetsToDevice :> len;        // Gobble it up.
-        handlePacket(packetBuffer_[packetNum], len);
         packetsToDevice <: packetNum;  // Return packet
     }
 }
 
-
-char arp[] = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x20, 0x30, 0x11, 0x22, 0x32, 0x08, 0x06, 0x00, 0x01,
-    0x08, 0x00, 0x06, 0x04, 0x00, 0x01, 0x00, 0x20, 0x30, 0x11, 0x22, 0x32, 0xa9, 0xfe, 0x1e, 0xc4,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xa9, 0xfe, 0xaf, 0xaf};
 
 void userThreadToHost(chanend packetsToHost) {
     timer t; int s;
@@ -193,9 +188,8 @@ void userThreadToHost(chanend packetsToHost) {
     while(1) {
         packetsToHost <: NULL_PACKET; // send request for packet
         packetsToHost :> packetNum;
-        packetCopyInto(packetNum, arp, sizeof(arp));
         packetsToHost <: packetNum;
-        packetsToHost <: sizeof(arp);
+        packetsToHost <: len;
         len += 128;
         t :> s;
         t when timerafter(s+100000000) :> s;
