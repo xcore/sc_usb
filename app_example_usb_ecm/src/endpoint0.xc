@@ -22,8 +22,8 @@ static unsigned char hiSpdDesc[] = {
   0x40,                /* 7  bMaxPacketSize */ 
   0xb1,                /* 8  idVendor */ 
   0x20,                /* 9  idVendor */ 
-  0x01,                /* 10 idProduct */ 
-  0x03,                /* 11 idProduct */ 
+  0x02,                /* 10 idProduct */ 
+  0x04,                /* 11 idProduct */ 
   0x00,                /* 12 bcdDevice */
   0x02,                /* 13 bcdDevice */
   0x01,                /* 14 iManufacturer */
@@ -151,7 +151,7 @@ static unsigned char stringDescriptors[][40] = {
 	"\009\004",                    // Language string
   	"XMOS",				           // iManufacturer 
  	"XMEth", 		               // iProduct
- 	"002030112233",                // MAC address
+ 	"002297xxxxxx",                // MAC address
  	"Config"   			           // iConfiguration
 };
 
@@ -201,6 +201,22 @@ void SetEndpointStatus(unsigned epNum, unsigned status)
     }
 }
 
+static const char hex[16] = "0123456789ABCDEF";
+
+char hexChar(char s) {
+    return hex[s&0xF];
+}
+
+void copyMacAddress() {
+    extern char macAddressTheirs[6], macAddressOurs[6];
+    for(int i = 0; i < 6; i++) {
+        stringDescriptors[3][i*2]   = hexChar(macAddressTheirs[i] >> 4);
+        stringDescriptors[3][i*2+1] = hexChar(macAddressTheirs[i]);
+        macAddressOurs[i] = macAddressTheirs[i];
+    }
+    macAddressOurs[5] ^= 1;
+}
+
 void Endpoint0( chanend chan_ep0_out, chanend chan_ep0_in)
 {
     unsigned char buffer[1024];
@@ -209,7 +225,9 @@ void Endpoint0( chanend chan_ep0_out, chanend chan_ep0_in)
     
     XUD_ep c_ep0_out = XUD_Init_Ep(chan_ep0_out);
     XUD_ep c_ep0_in  = XUD_Init_Ep(chan_ep0_in);
-    
+
+    copyMacAddress();
+
     while(1)
     {
         /* Do standard enumeration requests */ 
