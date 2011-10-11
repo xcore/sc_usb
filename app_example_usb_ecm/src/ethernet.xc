@@ -14,15 +14,26 @@ char macAddressOurs[6];
 char macAddressTheirs[6] = {0x00, 0x22, 0x97, 0x08, 0xA0, 0x03};
 
 unsigned char localName[] = "\004blah\005local";
+unsigned char localName2[] = "\004host\005local";
+
+static    unsigned sum = 0;
+
+int verbose = 0;
+
+void preOnesChecksum(unsigned short data[], int from, int len) {
+    for(int i = 0; i < len; i++) {
+        sum += byterev(data[from + i]) >> 16;
+    }
+}
 
 void onesChecksum(unsigned short data[], int from, int len, int to) {
-    unsigned sum = 0;
     for(int i = 0; i < len; i++) {
         sum += byterev(data[from + i]) >> 16;
     }
     sum = (sum & 0xffff) + (sum >> 16);
     sum = (sum & 0xffff) + (sum >> 16);
     data[to] = byterev((~sum) & 0xffff) >> 16;
+    sum = 0;
 }
 
 static int makeGratuitousArp(unsigned int packet[]) {
@@ -42,9 +53,28 @@ static int makeGratuitousArp(unsigned int packet[]) {
     return 42;
 }
 
+static int makeOrdinaryArp(unsigned int packet[]) {
+    packet[0] = 0xffffffff;
+    packet[1] = 0xffffffff;
+    packet[3] = 0x01000608;
+    packet[4] = 0x04060008;
+    packet[5] = 0x00000200;
+    packet[7] = byterev(ipAddressOurs);
+    packet[8] = 0;
+    packet[9] = ((unsigned)byterev(ipAddressTheirs)) << 16;
+    packet[10] = ((unsigned)byterev(ipAddressTheirs)) >> 16;
+    for(int i = 0; i < 6; i++) {
+        (packet, char[])[ 6+i] = macAddressOurs[i];
+        (packet, char[])[22+i] = macAddressOurs[i];
+    }
+    return 42;
+}
+
 static int makeMDNSResponse(unsigned int packet[]) {
     int k;
-//    printstr("MAKEDNS\n");
+    static int first = 0;
+    unsigned short fake[2];
+
     packet[0] = 0x005e0001;
     packet[1] = 0x2200fb00;
     for(int i = 0; i < 6; i++) {
@@ -57,10 +87,10 @@ static int makeMDNSResponse(unsigned int packet[]) {
     packet[7] = ((unsigned)byterev(ipAddressOurs)) >> 16 | 0x00e00000;
     packet[8] = 0xe914fb00;
     packet[9] = 0x0000e914 | (34 + sizeof(localName)) << 24;
-    packet[10] = 0x0000FFFF; // patch in checksum in FFFF
+    packet[10] = 0x00000000;
     packet[11] = 0x00000084;
     packet[12] = 0x00000100;
-    packet[13] = 0x0;
+    packet[13] = 0x00000000;
     for(int i = 0; i < sizeof(localName); i++) {
         (packet, char[])[ 54+i] = localName[i];
     }
@@ -72,20 +102,22 @@ static int makeMDNSResponse(unsigned int packet[]) {
     (packet, char[])[k++] = 0;
     (packet, char[])[k++] = 0;
     (packet, char[])[k++] = 0;
-    (packet, char[])[k++] = 255; // TTL
+    (packet, char[])[k++] = 255; // TTL2
     (packet, char[])[k++] = 0;
     (packet, char[])[k++] = 4;
     (packet, char[])[k++] = ipAddressOurs >> 24;
     (packet, char[])[k++] = ipAddressOurs >> 16;
     (packet, char[])[k++] = ipAddressOurs >> 8;
     (packet, char[])[k++] = ipAddressOurs >> 0;
-#if 0
-    for(int i = 0; i < k; i++) {
-        printf(" %02x", (packet, unsigned char[])[i]);
-        if ((i & 15) == 15) printf("\n");
-    }
-#endif
+
+    (packet, char[])[k] = 0x00;
+
     onesChecksum((packet, unsigned short[]), 7, 10, 12);
+    preOnesChecksum((packet, unsigned short[]), 13, 4);
+    fake[0] = 0x1100;
+    fake[1] = (packet, unsigned short[])[19];
+    preOnesChecksum(fake, 0, 2);
+    onesChecksum((packet, unsigned short[]), 17, ((k+1)>>1)-17, 20);
     return k;
 }
 int dstports[10], dstcnts =0;
@@ -103,7 +135,16 @@ void handlePacket(unsigned int packet, int len) {
             t = packetBufferAlloc();
             len = makeGratuitousArp(packetBuffer[t]);
             qPut(toHost, t, len);
+            return;
         }
+        if ((packetBuffer[packet], short[])[20] == -1) {
+            int t;
+            t = packetBufferAlloc();
+            len = makeOrdinaryArp(packetBuffer[t]);
+            qPut(toHost, t, len);
+            return;
+        }
+
     } else if (type == 0x0008) { // IP
         int protocol = (packetBuffer[packet], unsigned char[])[23];
         if (protocol == 0x11) { // UDP
