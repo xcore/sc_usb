@@ -7,8 +7,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-
-//unsigned int packetBuffer[NUM_PACKETS][1516/sizeof(int)+2];
+unsigned int packetBuffer[NUM_PACKETS][1516/sizeof(int)+2];
 static int freeList;
 
 void packetBufferInit() {
