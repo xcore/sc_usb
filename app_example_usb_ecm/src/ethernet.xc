@@ -1,3 +1,8 @@
+// Copyright (c) 2011, XMOS Ltd, All rights reserved
+// This software is freely distributable under a derivative of the
+// University of Illinois/NCSA Open Source License posted in
+// LICENSE.txt and at <http://github.xcore.com/>
+
 #include "packetManager.h"
 #include "ethernet.h"
 #include <xclib.h>
@@ -12,9 +17,9 @@
 
 extern struct queue toHost;
 
-int ipAddressOurs   = 0x0a000010;
-int ipAddressTheirs = 0x0a000011;
-char macAddressOurs[6];
+int ipAddressOurs   = 0xA9FE5555;
+int ipAddressTheirs = 0xA9FEAAAA;
+char macAddressOurs[6] = {0x00, 0x22, 0x97, 0x08, 0xA0, 0x02};
 char macAddressTheirs[6] = {0x00, 0x22, 0x97, 0x08, 0xA0, 0x03};
 
 unsigned char localName[] = "\004blah\005local";
@@ -130,14 +135,17 @@ void handlePacket(unsigned int packet, int len) {
         if ((packetBuffer[packet], short[])[14] == (packetBuffer[packet], short[])[19] &&
             (packetBuffer[packet], short[])[15] == (packetBuffer[packet], short[])[20]) {
             int t;
-            ipAddressTheirs = byterev(packetBuffer[packet][7]);
-            t = (ipAddressTheirs & 0xffff0000) |
-                (((ipAddressTheirs & 0xffff)-0x100 + 1) % 0xfe00+ 0x100);
-            asm("stw %0, dp[ipAddressOurs]" :: "r" (t));
+            int x = byterev(packetBuffer[packet][7]);
+            if (x != ipAddressTheirs) {     // They missed DHCP and fell back to link local
+                ipAddressTheirs = x;
+                if (x == ipAddressOurs) {   // Bum - they grabbed our address.
+                    ipAddressOurs = x+1;
+                }
+                lightLed(2);
+            }
             t = packetBufferAlloc();
             len = makeGratuitousArp(packetBuffer[t]);
             qPut(toHost, t, len);
-            lightLed(3);
             return;
         }
         if ((packetBuffer[packet], short[])[20] == -1) {

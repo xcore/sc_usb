@@ -1,3 +1,8 @@
+// Copyright (c) 2011, XMOS Ltd, All rights reserved
+// This software is freely distributable under a derivative of the
+// University of Illinois/NCSA Open Source License posted in
+// LICENSE.txt and at <http://github.xcore.com/>
+
 #include <xclib.h>
 #include <print.h>
 #include "packetManager.h"
@@ -8,8 +13,8 @@
 #include "femtoTCP.h"
 #include "dhcp.h"
 
-void wordCopy(unsigned int to[], unsigned int from[], int nWords) {
-    for(int i =0; i < nWords; i++) {
+static void wordCopy(unsigned int to[], unsigned int from[], int nWords) {
+    for(int i = 0; i < nWords; i++) {
         to[i] = from[i];
     }
 }
@@ -34,7 +39,7 @@ void processDHCPPacket(unsigned int packet, int len) {
             index = index + 1 + (packetBuffer[packet], unsigned char[])[index+1];
         }
     }
-    if (request == 1 || request == 3) { // DISCOVER
+    if (request == 1 || request == 3) { // DISCOVER or REQUEST
         int t;
         int k;
         t = packetBufferAlloc();
@@ -52,24 +57,27 @@ void processDHCPPacket(unsigned int packet, int len) {
         k = OPTION_START;
         (packetBuffer[t], unsigned char[])[k++] = 53;
         (packetBuffer[t], unsigned char[])[k++] = 1;
-        (packetBuffer[t], unsigned char[])[k++] = request == 1 ? 2 : 5;
+        (packetBuffer[t], unsigned char[])[k++] = request == 1 ? 2 : 5; // OFFER or ACK
+
         (packetBuffer[t], unsigned char[])[k++] = 51;
         (packetBuffer[t], unsigned char[])[k++] = 4;
         (packetBuffer[t], unsigned char[])[k++] = 0;
         (packetBuffer[t], unsigned char[])[k++] = 0;
         (packetBuffer[t], unsigned char[])[k++] = 1;
         (packetBuffer[t], unsigned char[])[k++] = 0;
+
         (packetBuffer[t], unsigned char[])[k++] = 54;
         (packetBuffer[t], unsigned char[])[k++] = 4;
-        (packetBuffer[t], unsigned char[])[k++] = 10;
-        (packetBuffer[t], unsigned char[])[k++] = 0;
-        (packetBuffer[t], unsigned char[])[k++] = 0;
-        (packetBuffer[t], unsigned char[])[k++] = 16;
+        (packetBuffer[t], unsigned char[])[k++] = ipAddressOurs >> 24;
+        (packetBuffer[t], unsigned char[])[k++] = ipAddressOurs >> 16;
+        (packetBuffer[t], unsigned char[])[k++] = ipAddressOurs >> 8;
+        (packetBuffer[t], unsigned char[])[k++] = ipAddressOurs >> 0;
+
         (packetBuffer[t], unsigned char[])[k++] = 1;
         (packetBuffer[t], unsigned char[])[k++] = 4;
         (packetBuffer[t], unsigned char[])[k++] = 255;
         (packetBuffer[t], unsigned char[])[k++] = 255;
-        (packetBuffer[t], unsigned char[])[k++] = 255;
+        (packetBuffer[t], unsigned char[])[k++] = 0;
         (packetBuffer[t], unsigned char[])[k++] = 0;
 
         (packetBuffer[t], unsigned char[])[k++] = 255;
@@ -77,6 +85,8 @@ void processDHCPPacket(unsigned int packet, int len) {
 
         patchUDPHeader(packetBuffer[t], k, 0xffffffff, 0x4300, 0x4400);
         qPut(toHost, t, k);
-    } else if (request == 3) { // REQUEST
+        if (request == 3) {
+            lightLed(3);
+        }
     }
 }

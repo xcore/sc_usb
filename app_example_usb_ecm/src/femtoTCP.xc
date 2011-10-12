@@ -1,3 +1,8 @@
+// Copyright (c) 2011, XMOS Ltd, All rights reserved
+// This software is freely distributable under a derivative of the
+// University of Illinois/NCSA Open Source License posted in
+// LICENSE.txt and at <http://github.xcore.com/>
+
 #include <xclib.h>
 #include <print.h>
 #include "femtoTCP.h"
@@ -7,8 +12,6 @@
 #include "ethernet.h"
 #include "q.h"
 #include "packetManager.h"
-
-extern struct queue toHost;
 
 int streamSequenceNumber;
 int streamAckNumber;
@@ -126,16 +129,3 @@ void processTCPPacket(unsigned int packet, int len) {
         ;
     }
 }
-
-#if 0
-void patchTCPHeader(unsigned int packet[], int packetHighestByteIndex, int to) {
-    int packetLength = packetHighestByteIndex - 34;
-
-
-    (packet, unsigned short[])[17] = 0xe914;
-    (packet, unsigned short[])[18] = 0xe914;
-    (packet, unsigned short[])[19] = byterev(packetLength) >> 16;
-    (packet, unsigned short[])[20] = 0; // checksum to be patched.
-
-}
-#endif

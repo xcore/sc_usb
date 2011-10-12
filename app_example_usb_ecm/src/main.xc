@@ -12,7 +12,6 @@
 #include "xud.h"
 #include "usb.h"
 #include "q.h"
-#include "sim.h"
 #include "packetManager.h"
 #include "ethernet.h"
 #include "xud_interrupt_driven.h"
@@ -51,14 +50,13 @@ static void transferPacketToIN(XUD_ep c_ep_in, struct queue &toHost, int head, i
 
 struct queue toHost;
 
-void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out, chanend packetsToDevice, chanend packetsToHost) {
+void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out) {
     XUD_ep c_ep_in = XUD_Init_Ep(chan_ep_in);
     XUD_ep c_ep_out = XUD_Init_Ep(chan_ep_out);
     unsigned char tmp;
     struct queue toDev;
     int hostWaiting = 1;
     int devWaiting = 0;
-    int userToDeviceWaiting = 0;
     int outPacket, outFrom;
     chan serv;
 
@@ -101,13 +99,7 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out, chanend packetsToD
                     XUD_provide_OUT_buffer_i(c_ep_out, packetBuffer[outPacket], outFrom);
                 } else {
                     l += outFrom;
-                    if (userToDeviceWaiting) {
-                        packetsToDevice <: outPacket; 
-                        packetsToDevice <: l; 
-                        userToDeviceWaiting = 0;
-                    } else {
-                        qPut(toDev, outPacket, l);
-                    }
+                    qPut(toDev, outPacket, l);
                     if (qIsFull(toDev)) {
                         devWaiting = 1;
                     } else {
@@ -118,39 +110,6 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out, chanend packetsToD
                 }
             }
             break;
-#if 0
-        case !qIsFull(toHost) => packetsToHost :> int bufNum:
-            if (bufNum == NULL_PACKET) {
-                packetsToHost <: packetBufferAlloc();
-            } else {
-                int len, element;
-                packetsToHost :> len;
-                element = qPut(toHost, bufNum, len);
-                if (hostWaiting) {
-                    hostWaiting = 0;
-                    transferPacketToIN(c_ep_in, toHost, element, len > WMAXPACKETSIZE ? WMAXPACKETSIZE : len);
-                }
-            }
-            break;
-        case packetsToDevice :> int bufNum:
-            if (bufNum != NULL_PACKET) {
-                packetBufferFree(bufNum);
-            } else if (qIsEmpty(toDev)) {
-                userToDeviceWaiting = 1;
-            } else {
-                int index = qGet(toDev);
-                packetsToDevice <: toDev.data[index].packet;
-                packetsToDevice <: toDev.data[index].len;
-                if (devWaiting)  {
-                    // alloc out buffer.
-                    devWaiting = 0;
-                    outPacket = packetBufferAlloc();
-                    XUD_provide_OUT_buffer(c_ep_out, packetBuffer[outPacket]);
-                    outFrom = 0;
-                }
-            }
-            break;
-#endif
         }
         if (!qIsEmpty(toDev)) {
             int index = qPeek(toDev);
@@ -170,50 +129,19 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out, chanend packetsToD
 
 }
 
-void userThreadToDevice(chanend packetsToDevice) {
-    int packetNum, len;
-    while(1) {
-        packetsToDevice <: NULL_PACKET; // send request for packet
-        packetsToDevice :> packetNum;  // Gobble it up.
-        packetsToDevice :> len;        // Gobble it up.
-        packetsToDevice <: packetNum;  // Return packet
-    }
-}
-
-
-void userThreadToHost(chanend packetsToHost) {
-    timer t; int s;
-    int packetNum, len = 256;
-//    while(1);
-    while(1) {
-        packetsToHost <: NULL_PACKET; // send request for packet
-        packetsToHost :> packetNum;
-        packetsToHost <: packetNum;
-        packetsToHost <: len;
-        len += 128;
-        t :> s;
-        t when timerafter(s+100000000) :> s;
-    }
-}
 
 int main() 
 {
-    chan c_ep_out[2], c_ep_in[2], packets, packets2;
+    chan c_ep_out[2], c_ep_in[2];
     par 
     {
         on stdcore[USB_CORE]: {
-//#define SIM
-//#ifdef SIM
-//            XUD_Manager_SIM( c_ep_out[1], c_ep_in[1]); 
-//#endif
             XUD_Manager( c_ep_out, XUD_EP_COUNT_OUT, c_ep_in, XUD_EP_COUNT_IN,
                          null, epTypeTableOut, epTypeTableIn,
-                         p_usb_rst, clk, /*-1*/1, XUD_SPEED_HS, null); 
+                         p_usb_rst, clk, 1, XUD_SPEED_HS, null); 
         }
         on stdcore[USB_CORE]: Endpoint0( c_ep_out[0], c_ep_in[0]);
-        on stdcore[USB_CORE]: handleEndpoints(c_ep_in[1], c_ep_out[1], packets, packets2);
-        on stdcore[USB_CORE]: userThreadToHost(packets2);
-        on stdcore[USB_CORE]: userThreadToDevice(packets);
+        on stdcore[USB_CORE]: handleEndpoints(c_ep_in[1], c_ep_out[1]);
     }
 
     return 0;
