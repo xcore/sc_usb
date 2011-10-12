@@ -38,7 +38,7 @@ to be transmitted over the USB bus. The device receives those packets and
 *emulates* two Ethernet interfaces connected by means of a cable; each of
 these devices has an IP address and a MAC address. The IP address of the
 first device (on the host side) will be set using link-local addressing or
-DHCP (to be done), the other device is set to a number that matches the
+DHCP, the other device is set to a number that matches the
 network. The WWW server lives, conceptually on the second Ethernet
 interface. Neither interface exists, but as far as the host is concerned
 there is a chunk of Ethernet cable present.
@@ -53,8 +53,7 @@ The servers that need to be implemented are:
 * MDNS for domain name matching (for windows some version of zeroconf will
   need to be supported)
 
-* DHCP server. This is to be done, the present example uses link-local
-  addressing, but this is slow and takes 5-10 seconds to take hold.
+* DHCP server. THis is the default option, link-local is provided as a fall-back.
 
 * WWW server. For serving contents. It just needs to support the GET
   message.
