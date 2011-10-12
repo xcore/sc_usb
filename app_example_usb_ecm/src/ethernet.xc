@@ -70,7 +70,7 @@ static int makeMDNSResponse(unsigned int packet[]) {
     packet[10] = 0x00000000;
     packet[11] = 0x00000084;
     packet[12] = 0x00000100;
-    packet[13] = 0x00000000;
+    packet[13] = 0x00000100;
     k = 54;
     for(int i = 0; i < sizeof(localName); i++) {
         (packet, char[])[k++] = localName[i];
@@ -89,6 +89,26 @@ static int makeMDNSResponse(unsigned int packet[]) {
     (packet, char[])[k++] = ipAddressOurs >> 16;
     (packet, char[])[k++] = ipAddressOurs >> 8;
     (packet, char[])[k++] = ipAddressOurs >> 0;
+
+
+    for(int i = 0; i < sizeof(localName); i++) {
+        (packet, char[])[k++] = localName[i];
+    }
+    (packet, char[])[k++] = 0;
+    (packet, char[])[k++] = 47;
+    (packet, char[])[k++] = 0x80;
+    (packet, char[])[k++] = 1;
+    (packet, char[])[k++] = 0;
+    (packet, char[])[k++] = 0;
+    (packet, char[])[k++] = 0;
+    (packet, char[])[k++] = 255; // TTL2
+    (packet, char[])[k++] = 0; // data length
+    (packet, char[])[k++] = 4; // data length
+    (packet, char[])[k++] = 0; // Domain name
+    (packet, char[])[k++] = 0;
+    (packet, char[])[k++] = 1;
+    (packet, char[])[k++] = 0x40;
+
 
     (packet, char[])[k] = 0x00;
 

@@ -26,7 +26,7 @@ void tcpString(char s[]) {
     (packetBuffer[t], unsigned short[])[19] = byterev(streamSequenceNumber);
     (packetBuffer[t], unsigned short[])[22] = byterev(streamAckNumber) >> 16;
     (packetBuffer[t], unsigned short[])[21] = byterev(streamAckNumber);
-    (packetBuffer[t], unsigned short[])[23] = 0x1850;
+    (packetBuffer[t], unsigned short[])[23] = 0x1950;   // ACK, PSH, FIN
     (packetBuffer[t], unsigned short[])[24] = 1600;
     (packetBuffer[t], unsigned short[])[25] = 0;
     (packetBuffer[t], unsigned short[])[26] = 0;
@@ -80,7 +80,31 @@ void processTCPPacket(unsigned int packet, int len) {
         qPut(toHost, t, 54);
         return;
     }
-    if (packetBuffer[packet][11] & 0x01000000) { // FIN
+    if (packetBuffer[packet][11] & 0x01000000) { // FIN, send an ACK.
+        int t;
+        static int finishCnt = 0;
+        if (finishCnt > 50) {
+            return;
+        }
+        finishCnt++;
+        t = packetBufferAlloc();
+        patchIPHeader(packetBuffer[t], 20 + 20, 0, 1);
+        streamSequenceNumber++;
+        streamAckNumber++;
+        (packetBuffer[t], unsigned short[])[17] = destPortRev;
+        (packetBuffer[t], unsigned short[])[18] = sourcePortRev;
+        (packetBuffer[t], unsigned short[])[20] = byterev(streamSequenceNumber) >> 16;
+        (packetBuffer[t], unsigned short[])[19] = byterev(streamSequenceNumber);
+        (packetBuffer[t], unsigned short[])[22] = byterev(streamAckNumber) >> 16;
+        (packetBuffer[t], unsigned short[])[21] = byterev(streamAckNumber);
+        (packetBuffer[t], unsigned short[])[23] = 0x1050;
+        (packetBuffer[t], unsigned short[])[24] = 1600;
+        (packetBuffer[t], unsigned short[])[25] = 0;
+        (packetBuffer[t], unsigned short[])[26] = 0;
+        onesChecksum(0x0006 + 20 /* packetType + packetLength */,
+                     (packetBuffer[t], unsigned short[]), 13, 26, 25);
+        
+        qPut(toHost, t, 54);
         return;
     }
     if (packetBuffer[packet][11] & 0x10000000) { // ACK
