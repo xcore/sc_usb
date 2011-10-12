@@ -5,14 +5,15 @@
 #include "femtoIP.h"
 #include "femtoUDP.h"
 #include "femtoTCP.h"
+#include "dhcp.h"
 #include <print.h>
 #include <stdio.h>
 #include <assert.h>
 
 extern struct queue toHost;
 
-int ipAddressOurs;
-int ipAddressTheirs;
+int ipAddressOurs   = 0x0a000010;
+int ipAddressTheirs = 0x0a000011;
 char macAddressOurs[6];
 char macAddressTheirs[6] = {0x00, 0x22, 0x97, 0x08, 0xA0, 0x03};
 
@@ -112,7 +113,7 @@ static int makeMDNSResponse(unsigned int packet[]) {
 
     (packet, char[])[k] = 0x00;
 
-    patchUDPHeader(packet, k, 0xe00000fb);
+    patchUDPHeader(packet, k, 0xe00000fb, 0xe914, 0xe914);
     return k;
 }
 
@@ -152,7 +153,9 @@ void handlePacket(unsigned int packet, int len) {
         if (protocol == 0x11) { // UDP
             int destPort = (packetBuffer[packet], unsigned short[])[18];
             int srcPort = (packetBuffer[packet], unsigned short[])[17];
-            if (destPort == 0xe914 && srcPort == 0xe914) {   // MDNS
+            if (destPort == 0x4300 && srcPort == 0x4400) {          // DHCP
+                processDHCPPacket(packet, len);
+            } else if (destPort == 0xe914 && srcPort == 0xe914) {   // MDNS
                 int flags = (packetBuffer[packet], short[])[22];
                 int queries = byterev((packetBuffer[packet], short[])[23]) >> 16;
                 int index = 54;

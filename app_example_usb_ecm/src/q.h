@@ -13,3 +13,5 @@ extern int qPut(struct queue &q, int packet, int len) ;
 extern int qPeek(struct queue &q) ;
 extern int qIsEmpty(struct queue &q) ;
 extern int qIsFull(struct queue &q) ;
+
+extern struct queue toHost;
