@@ -3,22 +3,67 @@ USB CDC/ECM example
 
 
 CDC/ECM is the standard for transmitting Ethernet frames over USB. It is
-normally used to implement Ethernet over USB dongles, but you can also use
-it for other purposes. 
+normally used to implement Ethernet over USB dongles, but this example
+shows an alternative use: running a WWW server over USB: plug your USB
+device into a PC, and point your web browser to ``http://blah.local/`` to
+contact the web server.
 
-The demo app in ``app_example_usb_ecm`` runs a WWW server over a virtual
-ethernet connection over USB. To the host this device appears as a network
-interface. THe interface is assigned an address, and we can access a web
-server over this interface on ``http://blah.local/``. This web server can
-control, for example, LEDs (as shown on the video on
-http://www.youtube.com/watch?v=5TBCFPfe3_w ), or it could report values on
-the device.
+Use cases for this include configuring devices that are connected over USB,
+authentication by storing a key on the USB dongle, or a user interface
+for sensor data that uses standard protocols rather than libusb. The
+current example, where a web server controls two LEDs is demonstrated on
+http://www.youtube.com/watch?v=5TBCFPfe3_w
+
+The details
+-----------
+
+Keep in mind that this example program does not use the USB stack as
+intended. It uses the following structure::
+
+
+      Web Browser <-> TCP/IP/Ethernet <-> USB               HOST
+                                           ^
+   .  .  .  .  .  .  .  .  .  .  .  .  .   |  .  .  .  .  .  .  .
+                                           v     
+                  +-> TCP/IP/Ethernet <-> USB       
+                  |
+                  |                                        DEVICE
+                  |                     +-> MDNS server
+                  +-> TCP/IP/Ethernet <-+-> WWW server
+                                        +-> DHCP server
+
+A host (PC/Mac) runs a web browser that interfaces through normal means to
+the host's network stack, which in turn encapsulates the ethernet packets
+to be transmitted over the USB bus. The device receives those packets and
+*emulates* two Ethernet interfaces connected by means of a cable; each of
+these devices has an IP address and a MAC address. The IP address of the
+first device (on the host side) will be set using link-local addressing or
+DHCP (to be done), the other device is set to a number that matches the
+network. The WWW server lives, conceptually on the second Ethernet
+interface. Neither interface exists, but as far as the host is concerned
+there is a chunk of Ethernet cable present.
+
+Only a very limited subset of the network set needs to be implemented. No
+cable is present, no packets can get lost or shuffled in transmission, and
+the world comprises just two IP addresses (mac addresses): called *theirs*
+and *ours* (for the host and device side).
+
+The servers that need to be implemented are:
+
+* MDNS for domain name matching (for windows some version of zeroconf will
+  need to be supported)
+
+* DHCP server. This is to be done, the present example uses link-local
+  addressing, but this is slow and takes 5-10 seconds to take hold.
+
+* WWW server. For serving contents. It just needs to support the GET
+  message.
 
 The demo is implemented on the L1-audio board, but it does not use any of
 the audio stuff - it just uses the L1 and the USB PHY.
 
-Detail: inside the device we emulate two Ethernet interfaces: one on the
-host side, and one on the device side. The one on the host side is tunneled
-over USB to the host, the other is connected to the WWW server. An
-absolutely minimal TCP/IP "stack" is implemented to make the WWW server
-talk to the host.
+USB/EEM
+-------
+
+You should be able to do this with USB/EEM, but I couldn't get that to work
+and suspect that drivers aren't readily available.
