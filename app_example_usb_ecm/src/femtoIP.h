@@ -1,1 +1,1 @@
-void patchIPHeader(unsigned int packet[], int to, int packetLength);
+void patchIPHeader(unsigned int packet[], int to, int packetLength, int isTCP);

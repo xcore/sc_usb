@@ -4,6 +4,7 @@
 #include "q.h"
 #include "femtoIP.h"
 #include "femtoUDP.h"
+#include "femtoTCP.h"
 #include <print.h>
 #include <stdio.h>
 #include <assert.h>
@@ -94,7 +95,13 @@ static int makeMDNSResponse(unsigned int packet[]) {
     patchUDPHeader(packet, k, 0xe00000fb);
     return k;
 }
+
 int dstports[10], dstcnts =0;
+
+void lightLed(int val) {
+    int portnr = 0x00200000;
+    asm("out res[%0],%1" :: "r" (portnr), "r" ((val << 3) | 1));
+}
 
 void handlePacket(unsigned int packet, int len) {
     int type = (packetBuffer[packet], short[])[6];
@@ -109,6 +116,7 @@ void handlePacket(unsigned int packet, int len) {
             t = packetBufferAlloc();
             len = makeGratuitousArp(packetBuffer[t]);
             qPut(toHost, t, len);
+            lightLed(3);
             return;
         }
         if ((packetBuffer[packet], short[])[20] == -1) {
@@ -158,6 +166,8 @@ void handlePacket(unsigned int packet, int len) {
                     index += 4;
                 }
             }
+        } else if (protocol == 0x6) { // TCP
+            processTCPPacket(packet, len);
         }
     }
 }

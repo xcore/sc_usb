@@ -208,7 +208,7 @@ int main()
 //#endif
             XUD_Manager( c_ep_out, XUD_EP_COUNT_OUT, c_ep_in, XUD_EP_COUNT_IN,
                          null, epTypeTableOut, epTypeTableIn,
-                         p_usb_rst, clk, -1, XUD_SPEED_HS, null); 
+                         p_usb_rst, clk, /*-1*/1, XUD_SPEED_HS, null); 
         }
         on stdcore[USB_CORE]: Endpoint0( c_ep_out[0], c_ep_in[0]);
         on stdcore[USB_CORE]: handleEndpoints(c_ep_in[1], c_ep_out[1], packets, packets2);

@@ -9,6 +9,7 @@ static int freeList;
 void packetBufferInit() {
     for(int i = 0; i < NUM_PACKETS; i++) {
         packetBuffer[i][0] = i+1;
+        packetBuffer[i][1] = ~(i*i);
     }
     packetBuffer[NUM_PACKETS-1][0] = NULL_PACKET;
     freeList = 0;
@@ -17,11 +18,13 @@ void packetBufferInit() {
 int packetBufferAlloc() {
     int i = freeList;
     assert(i != NULL_PACKET);
+    assert(packetBuffer[i][1] == ~(i*i));
     freeList = packetBuffer[freeList][0];
     return i;
 }
 
 void packetBufferFree(int index) {
     packetBuffer[index][0] = freeList;
+    packetBuffer[index][1] = ~(index*index);
     freeList = index;
 }

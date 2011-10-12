@@ -7,7 +7,7 @@
 void patchUDPHeader(unsigned int packet[], int packetHighestByteIndex, int to) {
     int packetLength = packetHighestByteIndex - 34;
 
-    patchIPHeader(packet, packetLength + 20, to);
+    patchIPHeader(packet, packetLength + 20, to, 0);
 
     (packet, unsigned short[])[17] = 0xe914;
     (packet, unsigned short[])[18] = 0xe914;
