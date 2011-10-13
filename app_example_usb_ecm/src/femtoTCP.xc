@@ -18,31 +18,42 @@ int streamAckNumber;
 int streamDestPortRev;
 int streamSourcePortRev;
 
+#define FIN 0x01
+#define SYN 0x02
+#define PSH 0x08
+#define ACK 0x10
+
+void patchTCPHeader(unsigned int packet[], int len, int flags) {
+    int totalShorts;
+    patchIPHeader(packet, 20 + 20 + len, 0, 1);
+    (packet, unsigned short[])[17] = streamDestPortRev;
+    (packet, unsigned short[])[18] = streamSourcePortRev;
+    (packet, unsigned short[])[20] = byterev(streamSequenceNumber) >> 16;
+    (packet, unsigned short[])[19] = byterev(streamSequenceNumber);
+    (packet, unsigned short[])[22] = byterev(streamAckNumber) >> 16;
+    (packet, unsigned short[])[21] = byterev(streamAckNumber);
+    (packet, unsigned short[])[23] = 0x0050 | flags << 8;
+    (packet, unsigned short[])[24] = 1600;
+    (packet, unsigned short[])[25] = 0;
+    (packet, unsigned short[])[26] = 0;
+    totalShorts = 27 + ((len+1)>>1);
+    onesChecksum(0x0006 + 20 + len /* packetType + packetLength */,
+                 (packet, unsigned short[]), 13, totalShorts - 1, 25);
+}
+
 void tcpString(char s[]) {
-    int t, totalShorts;
+    int t;
     int len = strlen(s);
     t = packetBufferAlloc();
-    patchIPHeader(packetBuffer[t], 20 + 20 + len, 0, 1);
-    (packetBuffer[t], unsigned short[])[17] = streamDestPortRev;
-    (packetBuffer[t], unsigned short[])[18] = streamSourcePortRev;
-    (packetBuffer[t], unsigned short[])[20] = byterev(streamSequenceNumber) >> 16;
-    (packetBuffer[t], unsigned short[])[19] = byterev(streamSequenceNumber);
-    (packetBuffer[t], unsigned short[])[22] = byterev(streamAckNumber) >> 16;
-    (packetBuffer[t], unsigned short[])[21] = byterev(streamAckNumber);
-    (packetBuffer[t], unsigned short[])[23] = 0x1950;   // ACK, PSH, FIN
-    (packetBuffer[t], unsigned short[])[24] = 1600;
-    (packetBuffer[t], unsigned short[])[25] = 0;
-    (packetBuffer[t], unsigned short[])[26] = 0;
+
     for(int i = 0; i < len; i++) {
         (packetBuffer[t], unsigned char[])[54+i] = s[i];
     }
     (packetBuffer[t], unsigned char[])[54+len] = 0;
 
-    totalShorts = 27 + ((len+1)>>1);
-    onesChecksum(0x0006 + 20 + len /* packetType + packetLength */,
-                 (packetBuffer[t], unsigned short[]), 13, totalShorts - 1, 25);
+    patchTCPHeader(packetBuffer[t], len, ACK | PSH | FIN);
     
-    qPut(toHost, t, totalShorts<<1);
+    qPut(toHost, t, 54 + len);
     streamSequenceNumber += len;
     return;
 }
@@ -63,55 +74,26 @@ void processTCPPacket(unsigned int packet, int len) {
     if (packetBuffer[packet][11] & 0x02000000) { // SYN
         int t;
         t = packetBufferAlloc();
-        patchIPHeader(packetBuffer[t], 20 + 20, 0, 1);
-        (packetBuffer[t], unsigned short[])[17] = destPortRev;
-        (packetBuffer[t], unsigned short[])[18] = sourcePortRev;
-        streamSequenceNumber = 0; // could be random
-        (packetBuffer[t], unsigned short[])[20] = byterev(streamSequenceNumber) >> 16;
-        (packetBuffer[t], unsigned short[])[19] = byterev(streamSequenceNumber);
-        streamSequenceNumber++;
         streamAckNumber = byterev(sequenceNumberRev) + 1;
-        (packetBuffer[t], unsigned short[])[22] = byterev(streamAckNumber) >> 16;
-        (packetBuffer[t], unsigned short[])[21] = byterev(streamAckNumber);
-        (packetBuffer[t], unsigned short[])[23] = 0x1250;
-        (packetBuffer[t], unsigned short[])[24] = 1600;
-        (packetBuffer[t], unsigned short[])[25] = 0;
-        (packetBuffer[t], unsigned short[])[26] = 0;
-        onesChecksum(0x0006 + 20 /* packetType + packetLength */,
-                     (packetBuffer[t], unsigned short[]), 13, 26, 25);
-        
+        streamSequenceNumber = 0; // could be random
+
+        patchTCPHeader(packetBuffer[t], 0, SYN | ACK);
+        streamSequenceNumber++;
         qPut(toHost, t, 54);
         return;
     }
     if (packetBuffer[packet][11] & 0x01000000) { // FIN, send an ACK.
         int t;
-        static int finishCnt = 0;
-        if (finishCnt > 50) {
-            return;
-        }
-        finishCnt++;
         t = packetBufferAlloc();
-        patchIPHeader(packetBuffer[t], 20 + 20, 0, 1);
         streamSequenceNumber++;
         streamAckNumber++;
-        (packetBuffer[t], unsigned short[])[17] = destPortRev;
-        (packetBuffer[t], unsigned short[])[18] = sourcePortRev;
-        (packetBuffer[t], unsigned short[])[20] = byterev(streamSequenceNumber) >> 16;
-        (packetBuffer[t], unsigned short[])[19] = byterev(streamSequenceNumber);
-        (packetBuffer[t], unsigned short[])[22] = byterev(streamAckNumber) >> 16;
-        (packetBuffer[t], unsigned short[])[21] = byterev(streamAckNumber);
-        (packetBuffer[t], unsigned short[])[23] = 0x1050;
-        (packetBuffer[t], unsigned short[])[24] = 1600;
-        (packetBuffer[t], unsigned short[])[25] = 0;
-        (packetBuffer[t], unsigned short[])[26] = 0;
-        onesChecksum(0x0006 + 20 /* packetType + packetLength */,
-                     (packetBuffer[t], unsigned short[]), 13, 26, 25);
-        
+
+        patchTCPHeader(packetBuffer[t], 0, ACK);
         qPut(toHost, t, 54);
         return;
     }
     if (packetBuffer[packet][11] & 0x10000000) { // ACK
-        ;
+        ; // required later to send long responses.
     }
     packetLength = byterev((packetBuffer[packet], unsigned short[])[8]) >> 16;
     headerLength = (packetBuffer[packet], unsigned char[])[46]>>2;
@@ -126,6 +108,6 @@ void processTCPPacket(unsigned int packet, int len) {
         }
     }
     if (packetBuffer[packet][11] & 0x08000000) { // PSH
-        ;
+        ; // Can safely be ignored.
     }
 }

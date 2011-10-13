@@ -24,7 +24,7 @@ void patchIPHeader(unsigned int packet[], int packetLength, int to, int isTCP) {
     }
     packet[3] = 0x00450008;
     packet[4] = 0xff630000 | byterev(packetLength) >> 16;
-    packet[5] = 0x11010000;
+    packet[5] = 0x11010000 | (isTCP  ? 0x00100000 : 0x00010000); // TTL > 1 for TCP.
     (packet, unsigned char[])[23] = isTCP ? 0x06 : 0x11;
     (packet, unsigned short[])[12] = 0;
     (packet, unsigned short[])[13] = ((unsigned)byterev(ipAddressOurs));
