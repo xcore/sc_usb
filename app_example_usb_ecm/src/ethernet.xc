@@ -109,8 +109,14 @@ static int makeMDNSResponse(unsigned int packet[]) {
     (packet, char[])[k++] = 0;
     (packet, char[])[k++] = 255; // TTL2
     (packet, char[])[k++] = 0; // data length
-    (packet, char[])[k++] = 4; // data length
-    (packet, char[])[k++] = 0; // Domain name
+    (packet, char[])[k++] = 10; // data length
+    (packet, char[])[k++] = 5;
+    (packet, char[])[k++] = 'l';
+    (packet, char[])[k++] = 'o';
+    (packet, char[])[k++] = 'c';
+    (packet, char[])[k++] = 'a';
+    (packet, char[])[k++] = 'l';
+    (packet, char[])[k++] = 0; // Domain name end
     (packet, char[])[k++] = 0;
     (packet, char[])[k++] = 1;
     (packet, char[])[k++] = 0x40;
