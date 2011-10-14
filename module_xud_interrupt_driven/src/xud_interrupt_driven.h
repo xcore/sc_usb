@@ -100,3 +100,6 @@ extern void XUD_provide_OUT_buffer_i(XUD_ep e, unsigned buffer[], int index);
  * \return        The length of the block of data just received.
  */ 
 extern int XUD_compute_OUT_length(XUD_ep e, unsigned buffer[]);
+
+extern void XUD_provide_OUT_buffer__(XUD_ep e, unsigned addr);
+extern void XUD_provide_IN_buffer__(XUD_ep e, int pid, unsigned addr, unsigned len);

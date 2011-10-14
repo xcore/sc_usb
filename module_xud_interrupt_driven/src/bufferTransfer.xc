@@ -4,6 +4,7 @@
 // LICENSE.txt and at <http://github.xcore.com/>
 
 #include "stdio.h"
+#include "assert.h"
 #include "xud.h"
 #include "xud_interrupt_driven.h"
 
@@ -11,7 +12,7 @@ extern void setINHandler(chanend s, XUD_ep y);
 extern void setOUTHandler(chanend s, XUD_ep y);
 extern void enableInterrupts(chanend serv);
 
-static void XUD_provide_OUT_buffer__(XUD_ep e, unsigned addr) {
+void XUD_provide_OUT_buffer__(XUD_ep e, unsigned addr) {
     int chan_array_ptr;
     int xud_chan;
     int my_chan;
@@ -46,8 +47,15 @@ int XUD_compute_OUT_length(XUD_ep e, unsigned buffer[]) {
     asm("add %0, %1, 0":"=r"(addr): "r" (buffer));
     asm ("ldw %0, %1[5]":"=r"(newPtr):"r"(e));
     asm ("ldw %0, %1[3]":"=r"(tail):"r"(e));
-    
+
+    if (tail == 9) {
+        return -1;
+    }
     return newPtr - addr + tail - 16;
+}
+
+void XUD_provide_IN_buffer__(XUD_ep e, int pid, unsigned addr, unsigned len) {
+    XUD_SetReady_In(e, pid, addr, len);
 }
 
 void XUD_provide_IN_buffer(XUD_ep e, int pid, unsigned buffer[], unsigned len) {

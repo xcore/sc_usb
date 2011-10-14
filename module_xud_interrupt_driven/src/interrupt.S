@@ -48,7 +48,8 @@ XUD_interrupt_enable:
     krestsp 0
     setsr 2
     retsp 0
-    
+
+    .align 4
 IN_interrupt:
     kentsp 5
     stw   r11, sp[0]
@@ -76,7 +77,6 @@ done:
 
     ldw r0, r11[0]
     ldc r1, 0
-
     stw r1, r0[0]
 
     ldw  r0, dp[chanend]
@@ -90,7 +90,7 @@ done:
     kret
 
 
-    
+    .align 4
 OUT_interrupt:
     kentsp 5
     stw   r11, sp[0]
