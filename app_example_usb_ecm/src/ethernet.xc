@@ -28,6 +28,7 @@ unsigned char localName2[] = "\004host\005local";
 
 int verbose = 0;
 
+
 void onesChecksum(unsigned int sum, unsigned short data[], int begin, int end, int to) {
     for(int i = begin; i <= end; i++) {
         sum += byterev(data[i]) >> 16;

@@ -11,6 +11,7 @@
 
 #include "xud.h"
 #include "usb.h"
+#include "ep0Support.h"
 #include "q.h"
 #include "packetManager.h"
 #include "ethernet.h"
@@ -49,10 +50,13 @@ static void transferPacketToIN(XUD_ep c_ep_in, struct queue &toHost, int head, i
 }
 
 struct queue toHost;
+unsigned int setupBuffer[300];
 
-void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out) {
+void handleEndpoints(chanend chan_ep0_in, chanend chan_ep0_out, chanend chan_ep_in, chanend chan_ep_out) {
     XUD_ep c_ep_in = XUD_Init_Ep(chan_ep_in);
     XUD_ep c_ep_out = XUD_Init_Ep(chan_ep_out);
+    XUD_ep c_ep0_in = XUD_Init_Ep(chan_ep0_in);
+    XUD_ep c_ep0_out = XUD_Init_Ep(chan_ep0_out);
     unsigned char tmp;
     struct queue toDev;
     int hostWaiting = 1;
@@ -60,6 +64,7 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out) {
     int outPacket, outFrom;
     chan serv;
 
+   // printf("%08x %08x %08x %08x\n",  c_ep0_in,  c_ep0_out,  c_ep_in,  c_ep_out);
     packetBufferInit();
     qInit(toHost);
     qInit(toDev);
@@ -67,13 +72,19 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out) {
     // and store the server channel
     XUD_interrupt_OUT(chan_ep_out, c_ep_out);
     XUD_interrupt_IN(chan_ep_in, c_ep_in);
-    XUD_interrupt_enable(serv);
+    XUD_interrupt_OUT(chan_ep0_out, c_ep0_out);
+    XUD_interrupt_IN(chan_ep0_in, c_ep0_in);
 
     // And make a buffer available for OUT requests.
     outPacket = packetBufferAlloc();
     XUD_provide_OUT_buffer(c_ep_out, packetBuffer[outPacket]);
     outFrom = 0;
+    XUD_provide_OUT_buffer(c_ep0_out, setupBuffer);
 
+    copyMacAddress();
+    ep0Init(c_ep0_in);
+
+    XUD_interrupt_enable(serv);
 
     while(1) {
         select {
@@ -94,7 +105,9 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out) {
                 transferPacketToIN(c_ep_in, toHost, head, bytesToSend);
             } else if (tmp == (c_ep_out & 0xff)) {
                 int l = XUD_compute_OUT_length(c_ep_out, packetBuffer[outPacket]) - outFrom;
-                if (l == WMAXPACKETSIZE) {
+                if (l == -1) {
+                    XUD_provide_OUT_buffer_i(c_ep_out, packetBuffer[outPacket], outFrom);
+                } else if (l == WMAXPACKETSIZE) {
                     outFrom += WMAXPACKETSIZE;
                     XUD_provide_OUT_buffer_i(c_ep_out, packetBuffer[outPacket], outFrom);
                 } else {
@@ -108,8 +121,17 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out) {
                         outFrom = 0;
                     }
                 }
+            } else if (tmp == (c_ep0_out & 0xff)) {
+                int l = XUD_compute_OUT_length(c_ep0_out, setupBuffer);
+                XUD_provide_OUT_buffer(c_ep0_out, setupBuffer);
+                if (l != -1) {
+                    ep0HandleOUTPacket(setupBuffer, l);
+                }
+            } else if (tmp == (c_ep0_in & 0xff)) {
+                ep0HandleINPacket();
             }
             break;
+            // Room for other cases here.
         }
         if (!qIsEmpty(toDev)) {
             int index = qPeek(toDev);
@@ -129,19 +151,31 @@ void handleEndpoints(chanend chan_ep_in, chanend chan_ep_out) {
 
 }
 
+static void burn() {
+    set_thread_fast_mode_on();
+    while(1);
+}
 
 int main() 
 {
     chan c_ep_out[2], c_ep_in[2];
     par 
     {
-        on stdcore[USB_CORE]: {
-            XUD_Manager( c_ep_out, XUD_EP_COUNT_OUT, c_ep_in, XUD_EP_COUNT_IN,
-                         null, epTypeTableOut, epTypeTableIn,
-                         p_usb_rst, clk, 1, XUD_SPEED_HS, null); 
+        {
+            set_thread_fast_mode_on();
+            XUD_Manager(c_ep_out, XUD_EP_COUNT_OUT, c_ep_in, XUD_EP_COUNT_IN,
+                        null, epTypeTableOut, epTypeTableIn,
+                        p_usb_rst, clk, 1, XUD_SPEED_HS, null); 
         }
-        on stdcore[USB_CORE]: Endpoint0( c_ep_out[0], c_ep_in[0]);
-        on stdcore[USB_CORE]: handleEndpoints(c_ep_in[1], c_ep_out[1]);
+        {
+            set_thread_fast_mode_on();
+            handleEndpoints(c_ep_in[0], c_ep_out[0],
+                            c_ep_in[1], c_ep_out[1]);
+        }
+        burn();
+        burn();
+        burn();
+        burn();
     }
 
     return 0;

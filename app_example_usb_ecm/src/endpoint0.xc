@@ -5,13 +5,13 @@
 
 #include <xs1.h>
 #include <print.h>
+#include <stdio.h>
 #include "xud.h"
 #include "usb.h"
-#include "hid.h"
-#include "DescriptorRequests.h"
+#include "ep0Support.h"
 
 // This devices Device Descriptor:
-static unsigned char hiSpdDesc[] = { 
+unsigned char hiSpdDesc[] = { 
   0x12,                /* 0  bLength */
   0x01,                /* 1  bdescriptorType */ 
   0x00,                /* 2  bcdUSB */ 
@@ -46,7 +46,7 @@ unsigned char fullSpdDesc[] =
     0x00               /* 9  bReserved  */ 
 };
 
-static unsigned char hiSpdConfDesc[] = {
+unsigned char hiSpdConfDesc[] = {
 
   0x09,                /* 0  bLength */ 
   0x02,                /* 1  bDescriptortype */ 
@@ -147,7 +147,7 @@ unsigned char fullSpdConfDesc[] =
 };
 
 
-static unsigned char stringDescriptors[][40] = {
+unsigned char stringDescriptors[][40] = {
 	"\009\004",                    // Language string
   	"XMOS",				           // iManufacturer 
  	"XMEth", 		               // iProduct
@@ -155,11 +155,17 @@ static unsigned char stringDescriptors[][40] = {
  	"Config"   			           // iConfiguration
 };
 
+unsigned int sizeofHiSpdDesc = sizeof(hiSpdDesc);
+unsigned int sizeofHiSpdConfDesc = sizeof(hiSpdConfDesc);
+unsigned int sizeofFullSpdDesc = sizeof(fullSpdDesc);
+unsigned int sizeofFullSpdConfDesc = sizeof(fullSpdConfDesc);
+
 extern int min(int a, int b);
 
-int ControlInterfaceClassRequests(XUD_ep c_ep0_out, XUD_ep c_ep0_in, SetupPacket sp)
+
+
+void ControlInterfaceClassRequests(SetupPacket sp)
 {
-    unsigned char buffer[64];
     // Recipient: Interface
     // NOTE: CLASS SPECIFIC REQUESTS
 
@@ -167,7 +173,7 @@ int ControlInterfaceClassRequests(XUD_ep c_ep0_out, XUD_ep c_ep0_in, SetupPacket
     { 
         case 0x43:      
             // TODO
-            return XUD_SetBuffer_ResetPid(c_ep0_in, buffer, 0, PIDn_DATA1);
+            ep0INack();
             break;
             
         default:
@@ -175,7 +181,6 @@ int ControlInterfaceClassRequests(XUD_ep c_ep0_out, XUD_ep c_ep0_in, SetupPacket
             break;
     }
 
-    return 0;
 }
 
 int g_epStatusOut[2];
@@ -201,247 +206,214 @@ void SetEndpointStatus(unsigned epNum, unsigned status)
     }
 }
 
-static const char hex[16] = "0123456789ABCDEF";
-
 char hexChar(char s) {
+    static const char hex[16] = {'0','1','2','3','4','5','6','7',
+                                 '8','9','A','B','C','D','E','F'};
     return hex[s&0xF];
 }
 
 void copyMacAddress() {
-    extern char macAddressTheirs[6], macAddressOurs[6];
+    extern char macAddressTheirs[6];
     for(int i = 0; i < 6; i++) {
         stringDescriptors[3][i*2]   = hexChar(macAddressTheirs[i] >> 4);
         stringDescriptors[3][i*2+1] = hexChar(macAddressTheirs[i]);
-        macAddressOurs[i] = macAddressTheirs[i];
     }
-    macAddressOurs[5] ^= 1;
 }
 
-void Endpoint0( chanend chan_ep0_out, chanend chan_ep0_in)
-{
-    unsigned char buffer[1024];
-    SetupPacket sp;
+void ep0User(SetupPacket &sp, unsigned char buffer[]) {
     unsigned int current_config = 0;
-    
-    XUD_ep c_ep0_out = XUD_Init_Ep(chan_ep0_out);
-    XUD_ep c_ep0_in  = XUD_Init_Ep(chan_ep0_in);
 
-    copyMacAddress();
-
-    while(1)
+    /* Request not covered by XUD_DoEnumReqs() so decode ourselves */
+    switch(sp.bmRequestType.Type)
     {
-        /* Do standard enumeration requests */ 
-        int retVal = 0;
-
-        retVal = DescriptorRequests(c_ep0_out, c_ep0_in, hiSpdDesc, sizeof(hiSpdDesc), 
-            hiSpdConfDesc, sizeof(hiSpdConfDesc), fullSpdDesc, sizeof(fullSpdDesc), 
-            fullSpdConfDesc, sizeof(fullSpdConfDesc), stringDescriptors, sp);
-        
-        if (retVal)
+        /* Class request */
+    case BM_REQTYPE_TYPE_CLASS:
+        switch(sp.bmRequestType.Recipient)
         {
-#if 0
-            if (sp.bRequest != 5 && sp.bRequest != 9) {
-                printintln(sp.bmRequestType.Type);
-                printintln(sp.bmRequestType.Recipient);
-                printintln(sp.bRequest);
-                while(1) ;
-            }
-#endif
-            /* Request not covered by XUD_DoEnumReqs() so decode ourselves */
-            switch(sp.bmRequestType.Type)
+        case BM_REQTYPE_RECIP_INTER:
+            /* Inspect for Control interface num */
+            if(sp.wIndex == 0)
             {
-                /* Class request */
-                case BM_REQTYPE_TYPE_CLASS:
-                    switch(sp.bmRequestType.Recipient)
-                    {
-                        case BM_REQTYPE_RECIP_INTER:
-                            /* Inspect for Control interface num */
-                            if(sp.wIndex == 0)
-                            {
-                                ControlInterfaceClassRequests(c_ep0_out, c_ep0_in, sp);
-                            }
-                            break;
-                                           
-                    }
-                    break;
-
-                case BM_REQTYPE_TYPE_STANDARD:
-                    switch(sp.bmRequestType.Recipient)
-                    {
-                        case BM_REQTYPE_RECIP_EP:                           
-                            /* Standard endpoint requests */
-                            switch ( sp.bRequest )
-                            {
-                                /* ClearFeature */
-                            case CLEAR_FEATURE:
-                                switch ( sp.wValue )
-                                {
-                                case ENDPOINT_HALT:
-                                    
-                                    /* Mark the endpoint status */
-                                    SetEndpointStatus(sp.wIndex, 0);
-                                    /* No data stage for this request, just do status stage */
-                                    retVal = XUD_DoSetRequestStatus(c_ep0_in, 0);
-                                    break;
-                                
-                                default:
-                                    XUD_Error( "Unknown request in Endpoint ClearFeature" );
-                                    break;
-                                }
-                                break; /* B_REQ_CLRFEAR */
-                                /* SetFeature */
-                            case SET_FEATURE:
-                                switch( sp.wValue )  
-                                {
-                                case ENDPOINT_HALT:
-                                    
-                                    /* Check request is in range */
-                                    SetEndpointStatus(sp.wIndex, 1);
-                                
-                                    break;
-                                
-                                default:
-                                    XUD_Error("Unknown feature in SetFeature Request");
-                                    break;
-                                }
-                                retVal = XUD_DoSetRequestStatus(c_ep0_in, 0);
-                                break;
-   
-                                /* Endpoint GetStatus Request */
-                            case GET_STATUS:
-                                buffer[0] = 0;
-                                buffer[1] = 0;
-                                if( sp.wIndex & 0x80 )
-                                {
-                                    /* IN Endpoint */
-                                    if((sp.wIndex&0x7f) < 2)                                {
-                                        buffer[0] = ( g_epStatusIn[ sp.wIndex & 0x7F ] & 0xff );
-                                        buffer[1] = ( g_epStatusIn[ sp.wIndex & 0x7F ] >> 8 );
-                                    }
-                                }
-                                else
-                                {
-                                    /* OUT Endpoint */
-                                    if(sp.wIndex < 2)
-                                    {
-                                        buffer[0] = ( g_epStatusOut[ sp.wIndex ] & 0xff );
-                                        buffer[1] = ( g_epStatusOut[ sp.wIndex ] >> 8 );
-                                    }
-                                }
-                                   
-                                retVal = XUD_DoGetRequest(c_ep0_out, c_ep0_in, buffer,  2, sp.wLength);
-                        
-                                break;
-                            default:
-                                //printstrln("Unknown Standard Endpoint Request");   
-                                break;
-                            }
-                            break;
- 
-                        case BM_REQTYPE_RECIP_INTER:
+                ControlInterfaceClassRequests(sp);
+            }
+            break;
+            
+        }
+        break;
+        
+    case BM_REQTYPE_TYPE_STANDARD:
+        switch(sp.bmRequestType.Recipient)
+        {
+        case BM_REQTYPE_RECIP_EP:                           
+            /* Standard endpoint requests */
+            switch ( sp.bRequest )
+            {
+                /* ClearFeature */
+            case CLEAR_FEATURE:
+                switch ( sp.wValue )
+                {
+                case ENDPOINT_HALT:
                     
-                            switch(sp.bRequest)
-                            {
-                                /* Set Interface */
-                                case SET_INTERFACE:
-                        
-                                    /* TODO: Set the interface */
-                        
-                                    /* No data stage for this request, just do data stage */
-                                    XUD_DoSetRequestStatus(c_ep0_in, 0);
-                                    break;
-                        
-                                case GET_INTERFACE:
-                                    buffer[0] = 0;
-                                    XUD_DoGetRequest(c_ep0_out, c_ep0_in, buffer,1, sp.wLength );
-                                    break;
-                        
-                                case GET_STATUS:
-                                    buffer[0] = 0;
-                                    buffer[1] = 0;
-                                    XUD_DoGetRequest(c_ep0_out, c_ep0_in, buffer, 2, sp.wLength);
-                                    break; 
-             
-                                case GET_DESCRIPTOR:
-                                    break;
-                        
-                            }       
-                            break;
-                    
-                /* Recipient: Device */
-                case BM_REQTYPE_RECIP_DEV:
-                    
-                    /* Standard Device requests (8) */
-                    switch( sp.bRequest )
-                    {      
-                        /* TODO We could check direction to be double safe */
-                        /* Standard request: SetConfiguration */
-                        case SET_CONFIGURATION:
-                        
-                            /* Set the config */
-                            current_config = sp.wValue;
-                        
-                            /* No data stage for this request, just do status stage */
-                            XUD_DoSetRequestStatus(c_ep0_in,  0);
-                            break;
-                        
-                        case GET_CONFIGURATION:
-                            buffer[0] = (char)current_config;
-                            XUD_DoGetRequest(c_ep0_out, c_ep0_in, buffer, 1, sp.wLength);
-                            break; 
-                        
-                        case GET_STATUS:
-                            buffer[0] = 0;
-                            buffer[1] = 0;
-                            if (hiSpdConfDesc[7] & 0x40)
-                                buffer[0] = 0x1;
-                            XUD_DoGetRequest(c_ep0_out, c_ep0_in, buffer, 2, sp.wLength);
-                            break; 
-                    
-                        case SET_ADDRESS:
-                            /* Status stage: Send a zero length packet */
-                            retVal = XUD_SetBuffer_ResetPid(c_ep0_in,  buffer, 0, PIDn_DATA1);
-
-                            /* We should wait until ACK is received for status stage before changing address */
-                            {
-                                timer t;
-                                unsigned time;
-                                t :> time;
-                                t when timerafter(time+50000) :> void;
-                            }
-
-                            /* Set device address in XUD */
-                            XUD_SetDevAddr(sp.wValue);
-                            break;
-                        
-                        default:
-                            //XUD_Error("Unknown device request");
-                            break;
-                        
-                    }  
+                    /* Mark the endpoint status */
+                    SetEndpointStatus(sp.wIndex, 0);
+                    /* No data stage for this request, just do status stage */
+                ep0INack();
+//                    retVal = XUD_DoSetRequestStatus(c_ep0_in, 0);
                     break;
                     
-                default: 
-                    /* Got a request to a recipient we didn't recognise... */ 
-                    //XUD_Error("Unknown Recipient"); 
+                default:
+                    XUD_Error( "Unknown request in Endpoint ClearFeature" );
                     break;
                 }
+                break; /* B_REQ_CLRFEAR */
+                /* SetFeature */
+            case SET_FEATURE:
+                switch( sp.wValue )  
+                {
+                case ENDPOINT_HALT:
+                    
+                    /* Check request is in range */
+                    SetEndpointStatus(sp.wIndex, 1);
+                    
+                    break;
+                    
+                default:
+                    XUD_Error("Unknown feature in SetFeature Request");
+                    break;
+                }
+                ep0INack();
+//                retVal = XUD_DoSetRequestStatus(c_ep0_in, 0);
                 break;
-            
+                
+                /* Endpoint GetStatus Request */
+            case GET_STATUS:
+                buffer[0] = 0;
+                buffer[1] = 0;
+                if( sp.wIndex & 0x80 )
+                {
+                    /* IN Endpoint */
+                    if((sp.wIndex&0x7f) < 2)                                {
+                        buffer[0] = ( g_epStatusIn[ sp.wIndex & 0x7F ] & 0xff );
+                        buffer[1] = ( g_epStatusIn[ sp.wIndex & 0x7F ] >> 8 );
+                    }
+                }
+                else
+                {
+                    /* OUT Endpoint */
+                    if(sp.wIndex < 2)
+                    {
+                        buffer[0] = ( g_epStatusOut[ sp.wIndex ] & 0xff );
+                        buffer[1] = ( g_epStatusOut[ sp.wIndex ] >> 8 );
+                    }
+                }
+                                   
+                ep0IN(buffer,  2, sp.wLength);
+                        
+                break;
             default:
-                /* Error */ 
+                //printstrln("Unknown Standard Endpoint Request");   
                 break;
-    
             }
+            break;
+ 
+        case BM_REQTYPE_RECIP_INTER:
+                    
+            switch(sp.bRequest)
+            {
+                /* Set Interface */
+            case SET_INTERFACE:
+                        
+                /* TODO: Set the interface */
+                        
+                /* No data stage for this request, just do data stage */
+//                XUD_DoSetRequestStatus(c_ep0_in, 0);
+                ep0INack();
+                break;
+                        
+            case GET_INTERFACE:
+                buffer[0] = 0;
+                ep0IN(buffer,1, sp.wLength );
+                break;
+                        
+            case GET_STATUS:
+                buffer[0] = 0;
+                buffer[1] = 0;
+                ep0IN(buffer, 2, sp.wLength);
+                break; 
+             
+            case GET_DESCRIPTOR:
+                break;
+                        
+            }       
+            break;
+                    
+            /* Recipient: Device */
+        case BM_REQTYPE_RECIP_DEV:
+                    
+            /* Standard Device requests (8) */
+            switch( sp.bRequest )
+            {      
+                /* TODO We could check direction to be double safe */
+                /* Standard request: SetConfiguration */
+            case SET_CONFIGURATION:
+                        
+                /* Set the config */
+                current_config = sp.wValue;
+                        
+                /* No data stage for this request, just do status stage */
+//                XUD_DoSetRequestStatus(c_ep0_in,  0);
+                ep0INack();
+                break;
+                        
+            case GET_CONFIGURATION:
+                buffer[0] = (char)current_config;
+                ep0IN(buffer, 1, sp.wLength);
+                break; 
+                        
+            case GET_STATUS:
+                buffer[0] = 0;
+                buffer[1] = 0;
+                if (hiSpdConfDesc[7] & 0x40)
+                    buffer[0] = 0x1;
+                ep0IN(buffer, 2, sp.wLength);
+                break; 
+                    
+            case SET_ADDRESS:
+                /* Status stage: Send a zero length packet */
+                ep0INack();
+
+
+                /* We should wait until ACK is received for status stage before changing address */
+                {
+                    timer t;
+                    unsigned time;
+                t :> time;
+                    t when timerafter(time+50000) :> void;
+                }
+
+                /* Set device address in XUD */
+                XUD_SetDevAddr(sp.wValue);
+                break;
+                        
+            default:
+                //XUD_Error("Unknown device request");
+                break;
+                        
+            }  
+            break;
+                    
+        default: 
+            /* Got a request to a recipient we didn't recognise... */ 
+            //XUD_Error("Unknown Recipient"); 
+            break;
+        }
+        break;
             
-        } /* if XUD_DoEnumReqs() */
-
-
-        if (retVal == -1) 
-        {
-            XUD_ResetEndpoint(c_ep0_out, c_ep0_in);
-        } 
-
-
+    default:
+        /* Error */ 
+        break;
+    
     }
 }
+
+
