@@ -1,22 +1,8 @@
-/**
- * Module:  app_l1_usb_hid
- * Version: 1v5
- * Build:   85182b6a76f9342326aad3e7c15c1d1a3111f60e
- * File:    main.xc
- *
- * The copyrights, all other intellectual and industrial 
- * property rights are retained by XMOS and/or its licensors. 
- * Terms and conditions covering the use of this code can
- * be found in the Xmos End User License Agreement.
- *
- * Copyright XMOS Ltd 2010
- *
- * In the case where this code is a modification of existing code
- * under a separate license, the separate license terms are shown
- * below. The modifications to the code are still covered by the 
- * copyright notice above.
- *
- **/                                   
+// Copyright (c) 2011, XMOS Ltd, All rights reserved
+// This software is freely distributable under a derivative of the
+// University of Illinois/NCSA Open Source License posted in
+// LICENSE.txt and at <http://github.xcore.com/>
+
 #include <xs1.h>
 #include <platform.h>
 #include <print.h>
@@ -27,7 +13,6 @@
 #define XUD_EP_COUNT_OUT   2
 #define XUD_EP_COUNT_IN    2
 
-#define USB_RST_PORT    XS1_PORT_32A
 #define USB_CORE        0
 
 

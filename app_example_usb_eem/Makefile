@@ -5,8 +5,7 @@
 
 # This example runs on the XS-L1 usb audio board. It doesn't use any of
 # the audio functionality and just uses the USB functionality of the board
-TARGET = keyboard
-#TARGET = XDK
+TARGET = L1_AUDIO
 
 #Use G version of XUD
 #export XUD_G=1
@@ -26,8 +25,7 @@ APP_NAME =
 # If the variable XCC_MAP_FLAGS is set it overrides the flags passed to 
 # xcc for the final link (mapping) stage.
 
-XCC_FLAGS = -Wall -O2 -report -fsubword-select -DUSB_CORE=0
-#XCC_FLAGS = -Wall -O2 -report -fsubword-select -DUSB_CORE=1 -DXDK
+XCC_FLAGS = -Wall -O2 -fsubword-select -DUSB_CORE=0
 
 # The USED_MODULES variable lists other module used by the application. 
 
