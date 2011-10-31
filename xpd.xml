@@ -1,11 +1,11 @@
 <?xml version="1.0" ?>
 <xpd>
     <dependency repo = "sc_xud">
-        <githash>5c68466b81916acfb87f1de4904f46c02a689da6</githash>
+        <githash>f5df7191a0ee365cc3f639e7728ff49d8ba3cfea</githash>
         <uri>git@github.com:xcore/sc_xud</uri>
     </dependency>
     <dependency repo = "xcommon">
-        <githash>787a61092487a135f6f49f41d190fa5cc03e2986</githash>
+        <githash>e69a9a283860259dc92a2a9482c3de204ac89abf</githash>
         <uri>ssh://git@github.com/xcore/xcommon</uri>
     </dependency>
     <description>USB Component. This requires the XUD low level library (sc_xud).</description>
@@ -14,7 +14,8 @@
     <maintainer>henkmuller</maintainer>
     <release parenthash = "6e659cb3114a0e6ce37b547a6a57a2f0290fed6e" version = "1.7.0beta0" githash = "dec0dae15e7f99deab637ecdae24ace985170395"></release>
     <release parenthash = "6a59c84ee576bf7ba73673c4e509bbc7be7853dd" version = "1.7.0beta1" githash = "5bf05b2fd262ba83f8dac03c9c5b6ad79d9fcf12"></release>
-    <release parenthash = "d9e35e4eebda02159920d3e28d4bbfc2a04fb413" version = "1.7.0beta2"></release>
+    <release parenthash = "d9e35e4eebda02159920d3e28d4bbfc2a04fb413" version = "1.7.0beta2" githash = "6738bc622b2c974d2648d7e8810bd8239404eed7"></release>
+    <release parenthash = "2cfc2acd974c25163d37f214d5a70d318c005f8f" version = "1.7.0rc0"></release>
     <scope>example</scope>
     <vendor>XMOS</vendor>
     <xpd_version>1.0</xpd_version>
