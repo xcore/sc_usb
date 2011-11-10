@@ -176,6 +176,18 @@ int ControlInterfaceClassRequests(XUD_ep c_ep0_out, XUD_ep c_ep0_in, SetupPacket
             return XUD_SetBuffer_ResetPid(c_ep0_in, buffer, 0, PIDn_DATA1);
             break;
             
+        case 0x22:      
+            // Linux calls this - even though we say we do not support it.
+            return XUD_SetBuffer_ResetPid(c_ep0_in, buffer, 0, PIDn_DATA1);
+            break;
+            
+        case 0x20:      
+            // Linux calls this - even though we say we do not support it.
+            (void) XUD_GetBuffer(c_ep0_out, buffer);
+            return XUD_SetBuffer_ResetPid(c_ep0_in, buffer, 0, PIDn_DATA1);
+            break;
+            
+
         default:
             /* Error case */
             break;
