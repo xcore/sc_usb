@@ -156,8 +156,8 @@ unsigned char fullSpdConfDesc[] =
 static unsigned char stringDescriptors[][40] = {
 	"\009\004",                    // Language string
   	"XMOS",				           // iManufacturer 
- 	"XMEth", 		               // iProduct
- 	"002030112233",                // MAC address
+ 	"XMSerial", 	               // iProduct
+ 	"002030112233",                // Unused.
  	"Config"   			           // iConfiguration
 };
 
