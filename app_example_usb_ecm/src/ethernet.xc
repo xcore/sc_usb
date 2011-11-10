@@ -155,7 +155,8 @@ void handlePacket(unsigned int packet, int len) {
             qPut(toHost, t, len);
             return;
         }
-        if ((packetBuffer[packet], short[])[20] == -1) {
+        if ((packetBuffer[packet], short[])[20] == -1 ||
+            (packetBuffer[packet], short[])[20] == (byterev(ipAddressOurs)>>16) ) {
             int t;
             t = packetBufferAlloc();
             len = makeOrdinaryArp(packetBuffer[t]);
