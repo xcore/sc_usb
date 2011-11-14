@@ -176,11 +176,24 @@ int ControlInterfaceClassRequests(XUD_ep c_ep0_out, XUD_ep c_ep0_in, SetupPacket
             return XUD_SetBuffer_ResetPid(c_ep0_in, buffer, 0, PIDn_DATA1);
             break;
             
+        case 0x21:
+            // Windows calls this - even though we say we do not support it.
+            buffer[0] = 0;
+            buffer[1] = 132;
+            buffer[2] = 3;
+            buffer[3] = 0;
+            buffer[4] = 0;
+            buffer[5] = 0;
+            buffer[6] = 8;
+            XUD_SetBuffer_ResetPid(c_ep0_in, buffer, 7, PIDn_DATA1);
+            return XUD_GetBuffer(c_ep0_out, buffer);
+            break;
+
         case 0x22:      
             // Linux calls this - even though we say we do not support it.
             return XUD_SetBuffer_ResetPid(c_ep0_in, buffer, 0, PIDn_DATA1);
             break;
-            
+
         case 0x20:      
             // Linux calls this - even though we say we do not support it.
             (void) XUD_GetBuffer(c_ep0_out, buffer);
@@ -190,6 +203,7 @@ int ControlInterfaceClassRequests(XUD_ep c_ep0_out, XUD_ep c_ep0_in, SetupPacket
 
         default:
             /* Error case */
+            printintln(sp.bRequest);
             break;
     }
 
