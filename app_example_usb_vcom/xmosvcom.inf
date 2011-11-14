@@ -1,0 +1,55 @@
+; For XMOS USB\VID_20B1&PID_0401&REV_0200
+; Thanks to Lilltroll et al.
+[Version] 
+Signature="$Windows NT$" 
+Class=Ports
+ClassGuid={4D36E978-E325-11CE-BFC1-08002BE10318} 
+; This class includes serial and parallel port devices. See also the MultiportSerial class.
+Provider = %XMOS%
+;;; LayoutFile=layout.inf ;; not supported in Vista and later
+DriverVer = 10/30/2011,0.0.0.8
+[Manufacturer]
+%XMOS% = DeviceList,NTx86,NTamd64
+[DeviceList.NTx86] ; device ID match
+%XMOSCompositeDevice%=Vcom.Device, USB\VID_20B1&PID_0401&REV_0200
+%XMOSVcomDevice%=Vcom.Device, USB\VID_20B1&PID_0401&REV_0200&MI_00
+
+[DeviceList.ntamd64] ; device ID match
+%XMOSCompositeDevice%=Vcom.Device, USB\VID_20B1&PID_0401&REV_0200
+%XMOSVcomDevice%=Vcom.Device, USB\VID_20B1&PID_0401&REV_0200&MI_00
+
+[Vcom.Device.NTx86] ; what to do when you have match to "Vcom.Device"
+include=mdmcpq.inf
+CopyFiles=FakeModemCopyFileSection
+AddReg=Vcom.Device.AddReg 
+
+[Vcom.Device.AddReg] ; specify devloader and driver stack
+HKR,,DevLoader,,*ntkern 
+HKR,,NTMPDriver,,usbser.sys 
+HKR,,EnumPropPages32,,"MsPorts.dll,SerialPortPropPageProvider" 
+
+[Vcom.Device.NTx86.Services] 
+AddService=usbser, 0x00000002, VComDriverService
+
+[VComDriverService] 
+DisplayName=%DRIVER.SVC% 
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%12%\usbser.sys 
+
+[SourceDisksNames]
+;;; this blank section satisfies chkinf
+
+[SourceDisksFiles]
+;;; this blank section satisfies chkinf
+
+[DestinationDirs] 
+FakeModemCopyFileSection=12
+DefaultDestDir = 12
+
+[Strings] 
+XMOS = "XMOS Developer Community"
+XMOSCompositeDevice = "XMOS Gadget with multiple configurations"
+XMOSVcomDevice= "XMOS Serial Virtual COM-port"
+DRIVER.SVC="XMOS Virtual COM-port USB RS-232 Emulation Driver"

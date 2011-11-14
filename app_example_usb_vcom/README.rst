@@ -11,4 +11,5 @@ This is the ECM example.
    terminal*, hence, everything gets send around in a loop forever. Break
    this by using ``stty -echo < /dev/ttyACM0``
 
- - on Windows: It is allegedly supported.
+ - on Windows: Use the .inf file in this directory, and supply that as the
+   driver file the first time you plug this device in.
